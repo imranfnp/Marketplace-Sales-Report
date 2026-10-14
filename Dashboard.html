@@ -1,0 +1,2210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marketplace Sales Report - SG</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --navy: #1e3a5f;
+            --navy-dark: #16304f;
+            --blue: #2b7de9;
+            --green: #22a06b;
+            --red: #e5484d;
+            --qfc: #2b7de9;
+            --cfc: #f5932e;
+            --grab: #00b14f;
+            --fp: #e91e8c;
+            --bg: #eef1f5;
+            --card: #ffffff;
+            --border: #e2e8f0;
+            --text: #1a2b3c;
+            --muted: #70809a;
+        }
+        body {
+            font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            font-size: 13px;
+        }
+
+        /* ===== HEADER ===== */
+        .header {
+            background: linear-gradient(100deg, var(--navy), var(--navy-dark));
+            color: #fff;
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header h1 { font-size: 26px; font-weight: 700; letter-spacing: 0.3px; }
+        .header .subtitle { font-size: 12.5px; color: #b8c7dd; margin-top: 3px; }
+        .header .updated { text-align: right; font-size: 11.5px; color: #b8c7dd; }
+        .header .updated strong { color: #fff; font-size: 13px; display: block; margin-top: 2px; }
+
+        /* ===== FILTER BAR ===== */
+        .filter-bar {
+            background: var(--card);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 24px;
+            display: flex;
+            gap: 18px;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+        .filter-group { display: flex; flex-direction: column; gap: 4px; }
+        .filter-group label { font-size: 11px; color: var(--muted); font-weight: 600; }
+        .filter-group select {
+            padding: 7px 10px;
+            font-size: 13px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: #fff;
+            color: var(--text);
+            cursor: pointer;
+            min-width: 130px;
+        }
+        .filter-group select:focus { outline: none; border-color: var(--blue); }
+        .apply-btn {
+            padding: 9px 22px;
+            background: var(--blue);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: auto;
+        }
+        .apply-btn:hover { background: #2066c4; }
+
+        /* ===== LAYOUT ===== */
+        .container { padding: 18px 24px; }
+        .status { font-size: 11.5px; color: var(--muted); margin-bottom: 10px; }
+        .loading { text-align: center; padding: 60px; color: var(--blue); font-size: 16px; }
+
+        .panel {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px 18px;
+            margin-bottom: 18px;
+            box-shadow: 0 1px 3px rgba(16,30,54,0.04);
+        }
+        .panel-title { font-size: 15px; font-weight: 700; margin-bottom: 14px; color: var(--text); }
+
+        /* ===== KPI CARDS ===== */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 14px;
+        }
+        .kpi-card {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            padding: 6px 2px;
+            border-right: 1px solid var(--border);
+        }
+        .kpi-card:last-child { border-right: none; }
+        .kpi-icon {
+            width: 40px; height: 40px;
+            border-radius: 9px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+        .kpi-body { display: flex; flex-direction: column; gap: 1px; }
+        .kpi-label { font-size: 11.5px; color: var(--muted); font-weight: 600; }
+        .kpi-value { font-size: 23px; font-weight: 700; color: var(--text); line-height: 1.1; }
+        .kpi-trend { font-size: 11.5px; font-weight: 600; margin-top: 2px; }
+        .kpi-sub { font-size: 10.5px; color: var(--muted); margin-top: 1px; }
+        .up { color: var(--green); }
+        .down { color: var(--red); }
+        .flat { color: var(--muted); }
+
+        /* ===== CHART ROWS ===== */
+        .row { display: grid; gap: 18px; margin-bottom: 18px; }
+        .row-trend { grid-template-columns: 1.6fr 1fr 1fr; }
+        .row-bottom { grid-template-columns: 1.4fr 1fr 1fr; }
+        .chart-box { position: relative; height: 230px; }
+        .donut-wrap { position: relative; height: 180px; }
+        .donut-center {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center; pointer-events: none;
+        }
+        .donut-center .dc-val { font-size: 19px; font-weight: 700; }
+        .donut-center .dc-lbl { font-size: 10.5px; color: var(--muted); }
+        .legend { margin-top: 10px; display: flex; flex-direction: column; gap: 10px; }
+        .legend-item { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; }
+        .legend-dot { width: 11px; height: 11px; border-radius: 50%; margin-top: 3px; flex-shrink: 0; }
+        .legend-text { display: flex; flex-direction: column; }
+        .legend-name { font-weight: 600; }
+        .legend-val { font-weight: 700; font-size: 13px; }
+        .legend-meta { font-size: 10.5px; color: var(--muted); }
+
+        /* ===== STORE TABLE ===== */
+        .store-table { width: 100%; border-collapse: collapse; font-size: 11px; table-layout: fixed; }
+        .store-table thead th {
+            background: #f4f7fb;
+            color: var(--muted);
+            font-weight: 600;
+            text-align: right;
+            padding: 7px 4px;
+            border-bottom: 2px solid var(--border);
+            white-space: normal;
+            word-break: break-word;
+        }
+        .store-table thead th:first-child,
+        .store-table thead th:nth-child(2) { text-align: left; }
+        .store-table tbody td {
+            padding: 6px 4px;
+            text-align: right;
+            border-bottom: 1px solid #f0f3f7;
+            white-space: nowrap;
+        }
+        .store-table tbody td:first-child {
+            text-align: left;
+            white-space: normal;
+            word-break: break-word;
+            line-height: 1.2;
+        }
+        .store-table tbody td:nth-child(2) { text-align: left; }
+        .store-table tbody tr:hover td { background: #f8fafc; }
+        .store-table tfoot td {
+            padding: 7px 4px;
+            text-align: right;
+            font-weight: 700;
+            border-top: 2px solid var(--border);
+            background: #f4f7fb;
+        }
+        .store-table tfoot td:first-child,
+        .store-table tfoot td:nth-child(2) { text-align: left; }
+        /* Column widths tuned so all 8 columns fit without horizontal scroll */
+        .store-table th:nth-child(1), .store-table td:nth-child(1) { width: 22%; }   /* Store */
+        .store-table th:nth-child(2), .store-table td:nth-child(2) { width: 10%; }   /* Format */
+        .store-table th:nth-child(3), .store-table td:nth-child(3) { width: 13%; }   /* Sales */
+        .store-table th:nth-child(4), .store-table td:nth-child(4) { width: 11%; }   /* % of Total */
+        .store-table th:nth-child(5), .store-table td:nth-child(5) { width: 9%; }    /* Orders */
+        .store-table th:nth-child(6), .store-table td:nth-child(6) { width: 10%; }   /* ATV */
+        .store-table th:nth-child(7), .store-table td:nth-child(7) { width: 12%; }   /* Prev Day */
+        .store-table th:nth-child(8), .store-table td:nth-child(8) { width: 13%; }   /* Growth % */
+        .fmt-badge {
+            display: inline-block;
+            padding: 1px 6px;
+            border-radius: 10px;
+            font-size: 9.5px;
+            font-weight: 700;
+        }
+        .fmt-qfc { background: #e3effd; color: var(--qfc); }
+        .fmt-cfc { background: #fdeedd; color: #d97a1a; }
+        .growth { font-weight: 700; }
+        .table-scroll { max-height: 340px; overflow-y: auto; }
+
+        /* ===== CATEGORY MATRIX ===== */
+        .matrix-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; gap: 12px; flex-wrap: wrap; }
+        .matrix-toggle { display: flex; align-items: center; gap: 8px; }
+        .matrix-toggle label { font-size: 11px; color: var(--muted); font-weight: 600; }
+        .matrix-toggle select {
+            padding: 6px 10px; font-size: 12.5px; border: 1px solid var(--border);
+            border-radius: 6px; background: #fff; color: var(--text); cursor: pointer;
+        }
+        .matrix-toggle select:focus { outline: none; border-color: var(--blue); }
+
+        .matrix-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .matrix-table thead th {
+            background: #f4f7fb; color: var(--muted); font-weight: 600; text-align: center;
+            padding: 8px 8px; border-bottom: 2px solid var(--border); white-space: nowrap;
+            position: sticky; top: 0; z-index: 2;
+        }
+        .matrix-table thead th:first-child { text-align: left; left: 0; z-index: 3; min-width: 150px; }
+        .matrix-table thead th.col-total { background: #eef4ff; color: var(--blue); }
+        .matrix-table tbody td {
+            padding: 7px 8px; text-align: center; border-bottom: 1px solid #f0f3f7; white-space: nowrap;
+        }
+        .matrix-table tbody td:first-child {
+            text-align: left; font-weight: 600; color: var(--text);
+            position: sticky; left: 0; background: #fff; z-index: 1;
+        }
+        .matrix-table tbody td.col-total { font-weight: 700; background: #f6f9ff; color: var(--text); }
+        .matrix-table tfoot td {
+            padding: 8px; text-align: center; font-weight: 700;
+            border-top: 2px solid var(--border); background: #f4f7fb;
+        }
+        .matrix-table tfoot td:first-child { text-align: left; position: sticky; left: 0; z-index: 1; }
+
+        /* ===== SPEND TABLE ===== */
+        .spend-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+        .spend-table thead th {
+            background: #f4f7fb; color: var(--muted); font-weight: 600; text-align: right;
+            padding: 9px 10px; border-bottom: 2px solid var(--border); white-space: nowrap;
+        }
+        .spend-table thead th:first-child { text-align: left; }
+        .spend-table tbody td {
+            padding: 9px 10px; text-align: right; border-bottom: 1px solid #f0f3f7; white-space: nowrap;
+        }
+        .spend-table tbody td:first-child { text-align: left; font-weight: 600; }
+        .spend-table .partner-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 7px; vertical-align: middle; }
+        .spend-table .sec-row td {
+            background: #f8fafc; font-weight: 700; color: var(--muted); font-size: 11px;
+            text-transform: uppercase; letter-spacing: 0.4px; padding: 6px 10px; text-align: left;
+        }
+        .spend-table .pct-good { color: var(--green); font-weight: 700; }
+        .spend-table .pct-warn { color: #d97a1a; font-weight: 700; }
+        .spend-table .pct-bad { color: var(--red); font-weight: 700; }
+
+        /* ===== PERIOD COMPARISON ===== */
+        .compare-section {
+            margin-top: 26px; padding-top: 20px; border-top: 3px solid var(--border);
+        }
+        .compare-header { margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+        .compare-title { font-size: 20px; font-weight: 700; color: var(--navy); }
+        .compare-sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+        .quick-presets { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .quick-label { font-size: 11.5px; color: var(--muted); font-weight: 600; }
+        .preset-btn {
+            padding: 6px 13px; font-size: 12px; font-weight: 600; cursor: pointer;
+            border: 1px solid var(--border); border-radius: 20px; background: #fff; color: var(--text);
+        }
+        .preset-btn:hover { border-color: var(--blue); color: var(--blue); background: #f3f8ff; }
+        .preset-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+        .compare-controls {
+            display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;
+            background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+            padding: 14px 18px; margin-bottom: 18px;
+        }
+        .range-box {
+            display: flex; gap: 12px; align-items: flex-end; position: relative;
+            padding: 10px 14px 10px 14px; border-radius: 8px; border: 1px solid var(--border);
+        }
+        .range-a { background: #eef4ff; border-color: #c9ddfb; }
+        .range-b { background: #fff4ea; border-color: #ffd9b0; }
+        .range-tag {
+            position: absolute; top: -9px; left: 12px; font-size: 10px; font-weight: 700;
+            padding: 1px 8px; border-radius: 8px; letter-spacing: 0.4px;
+        }
+        .range-a .range-tag { background: var(--blue); color: #fff; }
+        .range-b .range-tag { background: #f5932e; color: #fff; }
+        .vs-badge { font-weight: 800; color: var(--muted); font-size: 13px; padding-bottom: 12px; }
+        .compare-controls .filter-group label { font-size: 11px; color: var(--muted); font-weight: 600; }
+        .compare-controls select {
+            padding: 7px 10px; font-size: 12.5px; border: 1px solid var(--border);
+            border-radius: 6px; background: #fff; color: var(--text); cursor: pointer; min-width: 120px;
+            font-family: inherit;
+        }
+        .compare-controls select:focus { outline: none; border-color: var(--blue); }
+
+        /* Custom date field button */
+        .date-field {
+            padding: 7px 12px; font-size: 12.5px; border: 1px solid var(--border);
+            border-radius: 6px; background: #fff; color: var(--text); cursor: pointer;
+            min-width: 128px; text-align: left; font-family: inherit; position: relative;
+        }
+        .date-field:hover { border-color: var(--blue); }
+        .date-field.active { border-color: var(--blue); box-shadow: 0 0 0 2px rgba(43,125,233,0.15); }
+        .date-field::after { content: '\1F4C5'; position: absolute; right: 9px; top: 50%; transform: translateY(-50%); font-size: 12px; opacity: 0.6; }
+
+        /* Calendar popup */
+        .cal-popup {
+            position: absolute; z-index: 50; background: #fff; border: 1px solid var(--border);
+            border-radius: 10px; box-shadow: 0 8px 28px rgba(16,30,54,0.18); padding: 12px; width: 250px;
+        }
+        .cal-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+        .cal-nav span { font-weight: 700; font-size: 13px; color: var(--text); }
+        .cal-nav button {
+            width: 28px; height: 28px; border: 1px solid var(--border); background: #fff;
+            border-radius: 6px; cursor: pointer; font-size: 16px; color: var(--text); line-height: 1;
+        }
+        .cal-nav button:hover { background: #f4f7fb; border-color: var(--blue); }
+        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+        .cal-dow { text-align: center; font-size: 10px; font-weight: 700; color: var(--muted); padding: 3px 0; }
+        .cal-day {
+            text-align: center; font-size: 12px; padding: 6px 0; border-radius: 6px; cursor: pointer; color: var(--text);
+        }
+        .cal-day:hover { background: #e3effd; }
+        .cal-day.has-data { font-weight: 700; }
+        .cal-day.no-data { color: #c3ccda; cursor: default; }
+        .cal-day.no-data:hover { background: transparent; }
+        .cal-day.selected { background: var(--blue); color: #fff; font-weight: 700; }
+        .cal-day.empty { cursor: default; }
+
+        .cmp-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+        .cmp-table thead th {
+            background: #f4f7fb; color: var(--muted); font-weight: 600; text-align: right;
+            padding: 9px 10px; border-bottom: 2px solid var(--border); white-space: nowrap;
+            position: sticky; top: 0; z-index: 2;
+        }
+        .cmp-table thead th:first-child { text-align: left; }
+        .cmp-table thead th.col-a { color: var(--blue); }
+        .cmp-table thead th.col-b { color: #d97a1a; }
+        .cmp-table tbody td { padding: 8px 10px; text-align: right; border-bottom: 1px solid #f0f3f7; white-space: nowrap; }
+        .cmp-table tbody td:first-child { text-align: left; font-weight: 600; }
+        .cmp-table tbody tr:hover td { background: #f8fafc; }
+        .cmp-table .col-a-cell { background: #f3f8ff; }
+        .cmp-table .col-b-cell { background: #fff8f1; }
+        .cmp-table tfoot td {
+            padding: 9px 10px; text-align: right; font-weight: 700;
+            border-top: 2px solid var(--border); background: #f4f7fb;
+        }
+        .cmp-table tfoot td:first-child { text-align: left; }
+        .cmp-sec td {
+            background: #f8fafc; font-weight: 700; color: var(--muted); font-size: 11px;
+            text-transform: uppercase; letter-spacing: 0.4px; text-align: left; padding: 6px 10px;
+        }
+
+        @media (max-width: 1100px) {
+            .kpi-grid { grid-template-columns: repeat(3, 1fr); row-gap: 20px; }
+            .row-trend, .row-bottom { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div>
+        <h1>Marketplace Sales Report</h1>
+        <div class="subtitle">Track overall sales, compare periods and analyse performance across stores, store formats, partners and categories</div>
+    </div>
+    <div class="updated">Last Updated<strong id="lastUpdated">-</strong></div>
+</div>
+
+<div class="filter-bar">
+    <div class="filter-group">
+        <label>Month</label>
+        <select id="monthSelect"></select>
+    </div>
+    <div class="filter-group">
+        <label>Date (Daily View)</label>
+        <select id="dateSelect"><option value="all">Full Month</option></select>
+    </div>
+    <div class="filter-group">
+        <label>Store Format</label>
+        <select id="formatSelect"><option value="all">All Formats</option><option value="QFC">QFC</option><option value="CFC">CFC</option></select>
+    </div>
+    <div class="filter-group">
+        <label>Store</label>
+        <select id="storeSelect"><option value="all">All Stores</option></select>
+    </div>
+    <div class="filter-group">
+        <label>Partner</label>
+        <select id="partnerSelect"><option value="all">All Partners</option><option value="grab">Grab</option><option value="fp">Foodpanda</option></select>
+    </div>
+    <button class="apply-btn" onclick="loadData()">&#8635; Refresh</button>
+</div>
+
+<div class="container">
+    <div class="status" id="status"></div>
+    <div class="loading" id="loader">Fetching live data from Google Sheets...</div>
+
+    <div id="dashboard" style="display:none;">
+        <!-- KPI CARDS -->
+        <div class="panel">
+            <div class="panel-title">Overall Performance (Total Business)</div>
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <div class="kpi-icon" style="background:#e3effd;">&#128722;</div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">Total Sales (MTD)</span>
+                        <span class="kpi-value" id="kpiTotalSales">-</span>
+                        <span class="kpi-trend" id="kpiTotalTrend"></span>
+                        <span class="kpi-sub" id="kpiTotalSub"></span>
+                    </div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon" style="background:#fdeedd;">&#127919;</div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">MTD Target</span>
+                        <span class="kpi-value" id="kpiMtdTarget">-</span>
+                        <span class="kpi-trend flat">&mdash;</span>
+                        <span class="kpi-sub">Target to date</span>
+                    </div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon" style="background:#fff4d6;">&#127942;</div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">MTD Achievement</span>
+                        <span class="kpi-value" id="kpiMtdAch">-</span>
+                        <span class="kpi-trend" id="kpiMtdAchTrend"></span>
+                        <span class="kpi-sub" id="kpiMtdAchSub"></span>
+                    </div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon" style="background:#e3effd;">&#128202;</div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">Today's Sales</span>
+                        <span class="kpi-value" id="kpiDaySales">-</span>
+                        <span class="kpi-trend" id="kpiDayTrend"></span>
+                        <span class="kpi-sub" id="kpiDaySub"></span>
+                    </div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon" style="background:#fdeedd;">&#127919;</div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">Daily Target</span>
+                        <span class="kpi-value" id="kpiDayTarget">-</span>
+                        <span class="kpi-trend flat">&mdash;</span>
+                        <span class="kpi-sub" id="kpiDayTargetSub">Target for day</span>
+                    </div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon" style="background:#fff4d6;">&#127942;</div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">Today's Achievement</span>
+                        <span class="kpi-value" id="kpiDayAch">-</span>
+                        <span class="kpi-trend" id="kpiDayAchTrend"></span>
+                        <span class="kpi-sub" id="kpiDayAchSub"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TREND + DONUTS -->
+        <div class="row row-trend">
+            <div class="panel">
+                <div class="panel-title">Daily Trend &mdash; Orders vs Sales vs Spend</div>
+                <div class="chart-box"><canvas id="trendChart"></canvas></div>
+            </div>
+            <div class="panel">
+                <div class="matrix-head">
+                    <div class="panel-title" style="margin-bottom:0;">QFC vs CFC Sales</div>
+                    <div class="matrix-toggle">
+                        <select id="formatDonutView">
+                            <option value="daily">Daily</option>
+                            <option value="mtd">MTD</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="donut-wrap">
+                    <canvas id="formatDonut"></canvas>
+                    <div class="donut-center"><div class="dc-val" id="fmtDonutTotal">-</div><div class="dc-lbl" id="fmtDonutLbl">Total Sales</div></div>
+                </div>
+                <div class="legend" id="formatLegend"></div>
+            </div>
+            <div class="panel">
+                <div class="matrix-head">
+                    <div class="panel-title" style="margin-bottom:0;">Partner Sales</div>
+                    <div class="matrix-toggle">
+                        <select id="partnerDonutView">
+                            <option value="daily">Daily</option>
+                            <option value="mtd">MTD</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="donut-wrap">
+                    <canvas id="partnerDonut"></canvas>
+                    <div class="donut-center"><div class="dc-val" id="partnerDonutTotal">-</div><div class="dc-lbl" id="partnerDonutLbl">Total Sales</div></div>
+                </div>
+                <div class="legend" id="partnerLegend"></div>
+            </div>
+        </div>
+
+        <!-- STORE TABLE + CATEGORY + FORMAT BARS -->
+        <div class="row row-bottom">
+            <div class="panel">
+                <div class="matrix-head">
+                    <div class="panel-title" style="margin-bottom:0;">Store Performance</div>
+                    <div class="matrix-toggle">
+                        <label>View</label>
+                        <select id="storeViewSelect">
+                            <option value="daily">Daily</option>
+                            <option value="mtd">MTD</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="table-scroll">
+                    <table class="store-table" id="storeTable"></table>
+                </div>
+            </div>
+            <div class="panel">
+                <div class="matrix-head">
+                    <div class="panel-title" style="margin-bottom:0;">Gross Sales by Category</div>
+                    <div class="matrix-toggle">
+                        <label>View</label>
+                        <select id="categoryChartView">
+                            <option value="daily">Daily</option>
+                            <option value="mtd">MTD</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="chart-box" style="height:260px;"><canvas id="categoryChart"></canvas></div>
+            </div>
+            <div class="panel">
+                <div class="panel-title">Spend vs Net Sales &mdash; Grab &amp; Foodpanda</div>
+                <div class="chart-box" style="height:260px;"><canvas id="spendChart"></canvas></div>
+                <div class="legend" id="spendLegend" style="flex-direction:row; flex-wrap:wrap; gap:14px; margin-top:12px;"></div>
+            </div>
+        </div>
+
+        <!-- CATEGORY PERFORMANCE BY STORE (matrix, % share) -->
+        <div class="panel">
+            <div class="matrix-head">
+                <div class="panel-title" style="margin-bottom:0;">Category Performance by Store Percentage (MTD)</div>
+                <div class="matrix-toggle">
+                    <label>Format</label>
+                    <select id="catFormatSelect">
+                        <option value="all">All</option>
+                        <option value="QFC">QFC</option>
+                        <option value="CFC">CFC</option>
+                    </select>
+                    <label style="margin-left:12px;">Measure</label>
+                    <select id="catMeasureSelect">
+                        <option value="units">Units %</option>
+                        <option value="value">Gross Sales %</option>
+                    </select>
+                </div>
+            </div>
+            <div class="table-scroll" style="max-height:420px;">
+                <table class="matrix-table" id="categoryMatrix"></table>
+            </div>
+        </div>
+
+        <!-- ADDON PERFORMANCE (MTD) -->
+        <div class="panel">
+            <div class="panel-title">Addon Performance by Store (MTD)</div>
+            <div class="table-scroll" style="max-height:420px;">
+                <table class="matrix-table" id="addonTable"></table>
+            </div>
+        </div>
+
+        <!-- ============ PERIOD COMPARISON ============ -->
+        <div class="compare-section">
+            <div class="compare-header">
+                <div>
+                    <h2 class="compare-title">Period Comparison</h2>
+                    <div class="compare-sub">Compare the same KPIs across two custom date ranges</div>
+                </div>
+                <div class="quick-presets">
+                    <span class="quick-label">Quick compare:</span>
+                    <button type="button" class="preset-btn" onclick="applyPreset(1)">Previous Day</button>
+                    <button type="button" class="preset-btn" onclick="applyPreset(7)">Last 7 Days</button>
+                    <button type="button" class="preset-btn" onclick="applyPreset(15)">Last 15 Days</button>
+                    <button type="button" class="preset-btn" onclick="applyPreset(30)">Last 30 Days</button>
+                </div>
+            </div>
+
+            <div class="compare-controls">
+                <div class="range-box range-a">
+                    <span class="range-tag">Range A</span>
+                    <div class="filter-group"><label>From</label><button type="button" class="date-field" id="cmpAFrom" data-value="">Select</button></div>
+                    <div class="filter-group"><label>To</label><button type="button" class="date-field" id="cmpATo" data-value="">Select</button></div>
+                </div>
+                <div class="vs-badge">VS</div>
+                <div class="range-box range-b">
+                    <span class="range-tag">Range B</span>
+                    <div class="filter-group"><label>From</label><button type="button" class="date-field" id="cmpBFrom" data-value="">Select</button></div>
+                    <div class="filter-group"><label>To</label><button type="button" class="date-field" id="cmpBTo" data-value="">Select</button></div>
+                </div>
+                <div class="filter-group">
+                    <label>Store Format</label>
+                    <select id="cmpFormat"><option value="all">All Formats</option><option value="QFC">QFC</option><option value="CFC">CFC</option></select>
+                </div>
+                <div class="filter-group">
+                    <label>Store</label>
+                    <select id="cmpStore"><option value="all">All Stores</option></select>
+                </div>
+                <div class="filter-group">
+                    <label>Partner</label>
+                    <select id="cmpPartner"><option value="all">All Partners</option><option value="grab">Grab</option><option value="fp">Foodpanda</option></select>
+                </div>
+                <button class="apply-btn" style="margin-left:auto;" onclick="renderComparison()">&#8646; Compare</button>
+            </div>
+
+            <!-- shared calendar popup -->
+            <div id="calPopup" class="cal-popup" style="display:none;">
+                <div class="cal-nav">
+                    <button type="button" id="calPrev">&#8249;</button>
+                    <span id="calTitle"></span>
+                    <button type="button" id="calNext">&#8250;</button>
+                </div>
+                <div class="cal-grid" id="calGrid"></div>
+            </div>
+
+            <div id="compareBody">
+                <div class="panel">
+                    <div class="panel-title">Overall KPIs</div>
+                    <div class="table-scroll"><table class="cmp-table" id="cmpKpiTable"></table></div>
+                </div>
+                <div class="panel">
+                    <div class="panel-title">Store Performance</div>
+                    <div class="table-scroll" style="max-height:420px;"><table class="cmp-table" id="cmpStoreTable"></table></div>
+                </div>
+                <div class="panel">
+                    <div class="panel-title">Partner &amp; Spend</div>
+                    <div class="table-scroll"><table class="cmp-table" id="cmpPartnerTable"></table></div>
+                </div>
+                <div class="panel">
+                    <div class="matrix-head">
+                        <div class="panel-title" style="margin-bottom:0;">Category Performance</div>
+                        <div class="matrix-toggle">
+                            <label>Measure</label>
+                            <select id="cmpCatMeasure">
+                                <option value="value">Gross Sales</option>
+                                <option value="units">Units</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="table-scroll" style="max-height:420px;"><table class="cmp-table" id="cmpCategoryTable"></table></div>
+                </div>
+                <div class="panel">
+                    <div class="panel-title">Addon Performance &mdash; Units, Gross Sales &amp; Attach Rate</div>
+                    <div class="table-scroll"><table class="cmp-table" id="cmpAddonTable"></table></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ===== CONFIG =====
+const SHEET_ID = '1Xcx0C4R9FSsCoK6TMa9mCI7g45mc_RXHzdQC4QZjfoo';
+const SALES_GID = '1625687054';
+const SPENT_GID = '839280495';
+const CATEGORY_GID = '1629859257';
+const TARGET_GID = '2063809836';
+const CFC_WALKIN_GID = '1286214660';
+
+let callbackCounter = 0;
+
+function fetchSheetData(gid) {
+    return fetchSheetCSV(gid).catch(err => {
+        console.warn('CSV fetch failed for gid=' + gid + ', falling back to JSONP:', err.message);
+        return fetchSheetJSONP(gid);
+    });
+}
+
+function fetchSheetCSV(gid) {
+    // Different sheets behave differently with Google's two CSV endpoints:
+    //   - gviz (tq=select *)  : ignores filter VIEWS, but can truncate some sheets to a tiny range
+    //   - export?format=csv   : returns the full grid, but may respect an active filter view
+    // Neither is reliable alone (e.g. the Sales sheet needs gviz, the Category sheet needs export),
+    // so we fetch BOTH in parallel and keep whichever yields more data rows.
+    const base = `https://docs.google.com/spreadsheets/d/${SHEET_ID}`;
+    const gvizUrl = `${base}/gviz/tq?gid=${gid}&tqx=out:csv&tq=${encodeURIComponent('select *')}`;
+    const exportUrl = `${base}/export?format=csv&gid=${gid}`;
+
+    const fetchCsv = (url) => {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 25000);
+        return fetch(url, { redirect: 'follow', signal: controller.signal })
+            .then(response => { clearTimeout(timeout); if (!response.ok) throw new Error('HTTP ' + response.status); return response.text(); })
+            .then(csvText => {
+                if (!csvText || csvText.length < 10) throw new Error('Empty CSV');
+                if (/^\s*<|google\.visualization/.test(csvText)) throw new Error('non-CSV payload');
+                return parseCSV(csvText);
+            });
+    };
+
+    const gvizP = fetchCsv(gvizUrl).catch(e => { console.warn('gviz failed gid=' + gid, e.message); return null; });
+    const expP  = fetchCsv(exportUrl).catch(e => { console.warn('export failed gid=' + gid, e.message); return null; });
+
+    return Promise.all([gvizP, expP]).then(([gvizRows, expRows]) => {
+        const gN = gvizRows ? gvizRows.length : 0;
+        const eN = expRows ? expRows.length : 0;
+        if (gN === 0 && eN === 0) throw new Error('both CSV endpoints failed for gid=' + gid);
+        // Keep whichever returned more rows (more rows = less filtered/truncated)
+        return gN >= eN ? gvizRows : expRows;
+    });
+}
+
+function parseCSV(text) {
+    const rows = [];
+    let current = [], field = '', inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (inQuotes) {
+            if (ch === '"') {
+                if (i + 1 < text.length && text[i + 1] === '"') { field += '"'; i++; }
+                else inQuotes = false;
+            } else field += ch;
+        } else {
+            if (ch === '"') inQuotes = true;
+            else if (ch === ',') { current.push(field); field = ''; }
+            else if (ch === '\r') { /* skip */ }
+            else if (ch === '\n') { current.push(field); field = ''; if (current.length > 0) rows.push(current); current = []; }
+            else field += ch;
+        }
+    }
+    if (field || current.length > 0) { current.push(field); if (current.some(c => c !== '')) rows.push(current); }
+    return rows;
+}
+
+function fetchSheetJSONP(gid) {
+    return new Promise((resolve, reject) => {
+        const cbName = '_sheetCB' + (callbackCounter++);
+        const script = document.createElement('script');
+        const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tq=${encodeURIComponent('select *')}&tqx=out:json;responseHandler:${cbName}&gid=${gid}`;
+        window[cbName] = function(response) {
+            try {
+                const table = response.table;
+                const headers = table.cols.map(c => c.label || '');
+                const rows = table.rows.map(r => r.c.map((cell) => {
+                    if (!cell || cell.v === null || cell.v === undefined) return '';
+                    if (cell.f && cell.f !== '') return cell.f;
+                    if (cell.v instanceof Date) {
+                        const mm = (cell.v.getMonth() + 1).toString().padStart(2, '0');
+                        const dd = cell.v.getDate().toString().padStart(2, '0');
+                        return mm + '/' + dd + '/' + cell.v.getFullYear();
+                    }
+                    if (typeof cell.v === 'string') return cell.v;
+                    return String(cell.v);
+                }));
+                rows.unshift(headers);
+                resolve(rows);
+            } catch (e) { reject(e); }
+            delete window[cbName];
+            if (script.parentNode) script.parentNode.removeChild(script);
+        };
+        script.onerror = () => { delete window[cbName]; if (script.parentNode) script.parentNode.removeChild(script); reject(new Error('Network error for gid=' + gid)); };
+        script.src = url;
+        document.head.appendChild(script);
+    });
+}
+
+// ===== DATA =====
+let salesData = [], spentData = [], categoryData = [], targetData = [], cfcWalkinData = [];
+let allMonths = [];
+const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const shortToFullMap = {'jan':'January','feb':'February','mar':'March','apr':'April','may':'May','jun':'June','jul':'July','aug':'August','sep':'September','oct':'October','nov':'November','dec':'December'};
+const monthMap = {'January':'01','February':'02','March':'03','April':'04','May':'05','June':'06','July':'07','August':'08','September':'09','October':'10','November':'11','December':'12'};
+
+// ===== STORE LOGIC =====
+const PRIORITY_STORES = ["444 Tagore (FNP Delivery)","444 Tagore (Platform Delivery)","MacPherson 24X7","Mandai"];
+
+function getStoreKey(row) {
+    const loc = (row.Location || '').trim();
+    if (!loc) return 'Others';
+    const l = loc.toLowerCase();
+    if (l.includes('tagore drive') || l.includes('tagore dr')) return 'Tagore Drive';
+    if (l.includes('444 tagore') || l === 'tagore') {
+        const dm = (row['Delivery Module'] || '').toLowerCase();
+        return dm.includes('fnp') ? '444 Tagore (FNP Delivery)' : '444 Tagore (Platform Delivery)';
+    }
+    if (l.includes('macpherson')) return 'MacPherson 24X7';
+    if (l.includes('mandai')) return 'Mandai';
+    if (l.includes('fernvale')) return 'Fernvale';
+    if (l.includes('kim keat') || l.includes('kim kiat')) return 'Kim Kiat - 24X7';
+    if (l.includes('canberra')) return 'Canberra - 24X7';
+    if (l.includes('brickworks')) return 'Brickworks Estate';
+    if (l.includes('changi')) return 'Changi';
+    if (l.includes('crawford')) return 'Crawford Lane';
+    if (l.includes('hougang')) return 'Hougang';
+    if (l.includes('jurong east')) return 'Jurong East';
+    if (l.includes('jurong')) return 'Jurong West';
+    if (l.includes('tampines')) return 'Tampines';
+    if (l.includes('woodlands')) return 'Woodlands';
+    if (l.includes('fortune')) return 'Fortune Center';
+    if (l.includes('balestier')) return 'Balestier';
+    if (l.includes('king albert')) return 'King Albert';
+    return loc;
+}
+
+function sortStores(list) {
+    const pri = [], rest = [];
+    PRIORITY_STORES.forEach(s => { if (list.includes(s)) pri.push(s); });
+    list.forEach(s => { if (!PRIORITY_STORES.includes(s)) rest.push(s); });
+    rest.sort();
+    return [...pri, ...rest];
+}
+
+// ===== LOAD =====
+async function loadData() {
+    const loader = document.getElementById('loader');
+    const dash = document.getElementById('dashboard');
+    const status = document.getElementById('status');
+    loader.style.display = 'block'; dash.style.display = 'none';
+
+    try {
+        const [sRaw, spRaw, cRaw, tRaw, cfcRaw] = await Promise.all([
+            fetchSheetData(SALES_GID),
+            fetchSheetData(SPENT_GID),
+            fetchSheetData(CATEGORY_GID),
+            fetchSheetData(TARGET_GID),
+            fetchSheetData(CFC_WALKIN_GID).catch(e => { console.warn('CFC sheet error:', e); return [[]]; })
+        ]);
+
+        function parse(raw) {
+            if (!raw || raw.length === 0) return [];
+            const hdr = raw[0].some(h => h) ? raw[0] : (raw[1] && raw[1].some(h => h) ? raw[1] : raw[0]);
+            const start = raw[0].some(h => h) ? 1 : 2;
+            return raw.slice(start).filter(r => r.some(c => c)).map(r => { const o = {}; hdr.forEach((h, i) => { o[h.trim()] = (r[i] || '').trim(); }); return o; });
+        }
+
+        salesData = parse(sRaw);
+        spentData = parse(spRaw);
+        categoryData = parse(cRaw);
+        targetData = parse(tRaw);
+        cfcWalkinData = parse(cfcRaw);
+
+        fixMonthColumn(salesData);
+        fixMonthColumn(spentData);
+        fixMonthColumn(categoryData);
+
+        allMonths = [...new Set(salesData.map(r => r.Month))].filter(Boolean);
+
+        populateFilters();
+        renderDashboard();
+        populateCompareFilters();
+        renderComparison();
+        loader.style.display = 'none'; dash.style.display = 'block';
+        document.getElementById('lastUpdated').textContent = new Date().toLocaleString('en-SG', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+        status.textContent = `Live data from Google Sheets`;
+    } catch (err) {
+        loader.innerHTML = `<span style="color:#e5484d;">Error: ${err.message}</span><br><small>Ensure the sheet is shared as "Anyone with the link can view"</small>`;
+    }
+}
+
+function fixMonthColumn(data) {
+    if (!data || data.length === 0) return;
+    let monthKey = Object.keys(data[0]).find(k => k.toLowerCase() === 'month');
+    let dateKey = Object.keys(data[0]).find(k => k.toLowerCase() === 'date');
+    if (!monthKey || !dateKey) return;
+    const val = (data[0][monthKey] || '').trim();
+    if (val.match(/^\d{1,2}[\/\-]/)) {
+        data.forEach(r => { const d = new Date(r[dateKey]); if (!isNaN(d.getTime())) { r[monthKey] = monthNames[d.getMonth()] + '-' + String(d.getFullYear()).slice(-2); } });
+    } else if (val.match(/^[A-Za-z]+\s+\d{4}$/)) {
+        data.forEach(r => { const p = (r[monthKey]||'').trim().match(/^([A-Za-z]+)\s+(\d{4})$/); if (p) { const f = shortToFullMap[p[1].toLowerCase().substring(0,3)]||p[1]; r[monthKey] = f + '-' + p[2].slice(-2); } });
+    } else if (val.match(/^[A-Za-z]+-\d{4}$/)) {
+        data.forEach(r => { const p = (r[monthKey]||'').trim().match(/^([A-Za-z]+)-(\d{4})$/); if (p) { const f = shortToFullMap[p[1].toLowerCase().substring(0,3)]||p[1]; r[monthKey] = f + '-' + p[2].slice(-2); } });
+    } else if (val.match(/^[A-Za-z]+-\d{2}$/)) {
+        data.forEach(r => { const p = (r[monthKey]||'').trim().match(/^([A-Za-z]+)-(\d{2})$/); if (p) { const f = shortToFullMap[p[1].toLowerCase().substring(0,3)]||p[1]; r[monthKey] = f + '-' + p[2]; } });
+    } else if (val.match(/^[A-Za-z]+\s+\d{2}$/)) {
+        data.forEach(r => { const p = (r[monthKey]||'').trim().match(/^([A-Za-z]+)\s+(\d{2})$/); if (p) { const f = shortToFullMap[p[1].toLowerCase().substring(0,3)]||p[1]; r[monthKey] = f + '-' + p[2]; } });
+    } else {
+        data.forEach(r => { const d = new Date(r[dateKey]); if (!isNaN(d.getTime())) { r[monthKey] = monthNames[d.getMonth()] + '-' + String(d.getFullYear()).slice(-2); } });
+    }
+    if (monthKey !== 'Month') data.forEach(r => { r.Month = r[monthKey]; });
+}
+
+// ===== DATE HELPERS =====
+function parseDate(d) {
+    if (!d) return null;
+    const mdy = d.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+    if (mdy) return new Date(parseInt(mdy[3]), parseInt(mdy[1])-1, parseInt(mdy[2]));
+    const ymd = d.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$/);
+    if (ymd) return new Date(parseInt(ymd[1]), parseInt(ymd[2])-1, parseInt(ymd[3]));
+    const dt = new Date(d);
+    return isNaN(dt.getTime()) ? null : dt;
+}
+function toDateKey(dateStr) {
+    const d = parseDate(dateStr);
+    if (!d) return '';
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+// ===== FILTERS =====
+function populateFilters() {
+    const mSel = document.getElementById('monthSelect');
+    mSel.innerHTML = '';
+    allMonths.forEach(m => { const o = document.createElement('option'); o.value = m; o.textContent = m; mSel.appendChild(o); });
+    if (allMonths.length) mSel.value = allMonths[allMonths.length - 1];
+    updateDateFilter();
+    updateStoreFilter();
+    mSel.onchange = () => { updateDateFilter(); updateStoreFilter(); renderDashboard(); };
+    document.getElementById('dateSelect').onchange = renderDashboard;
+    document.getElementById('formatSelect').onchange = renderDashboard;
+    document.getElementById('storeSelect').onchange = renderDashboard;
+    document.getElementById('partnerSelect').onchange = renderDashboard;
+    document.getElementById('catMeasureSelect').onchange = renderDashboard;
+    document.getElementById('catFormatSelect').onchange = renderDashboard;
+    document.getElementById('storeViewSelect').onchange = renderDashboard;
+    document.getElementById('formatDonutView').onchange = renderDashboard;
+    document.getElementById('partnerDonutView').onchange = renderDashboard;
+    document.getElementById('categoryChartView').onchange = renderDashboard;
+}
+
+function updateDateFilter() {
+    const month = document.getElementById('monthSelect').value;
+    const dSel = document.getElementById('dateSelect');
+    let dates = [...new Set(salesData.filter(r => r.Month === month).map(r => r.Date))].filter(Boolean);
+    dates.sort((a, b) => { const da = parseDate(a), db = parseDate(b); if (!da&&!db) return 0; if (!da) return 1; if (!db) return -1; return da - db; });
+    dSel.innerHTML = '<option value="all">Full Month</option>';
+    const nowSG = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Singapore' }));
+    const todaySG = new Date(nowSG.getFullYear(), nowSG.getMonth(), nowSG.getDate());
+    const filteredDates = dates.filter(d => { const pd = parseDate(d); return pd && pd < todaySG; });
+    filteredDates.forEach(d => { const o = document.createElement('option'); o.value = d; o.textContent = d; dSel.appendChild(o); });
+    if (filteredDates.length) dSel.value = filteredDates[filteredDates.length - 1];
+}
+
+function updateStoreFilter() {
+    const month = document.getElementById('monthSelect').value;
+    const sSel = document.getElementById('storeSelect');
+    const cur = sSel.value;
+    const storeSet = new Set();
+    salesData.filter(r => r.Month === month).forEach(r => storeSet.add(getStoreKey(r)));
+    const stores = sortStores([...storeSet]);
+    sSel.innerHTML = '<option value="all">All Stores</option>';
+    stores.forEach(s => { const o = document.createElement('option'); o.value = s; o.textContent = s; sSel.appendChild(o); });
+    if ([...sSel.options].some(o => o.value === cur)) sSel.value = cur;
+}
+
+// ===== AGGREGATION =====
+function partnerBucket(r) {
+    const p = (r['Partner Service']||'').toLowerCase();
+    if (p.includes('grab')) return 'grab';
+    if (p.includes('food') || p.includes('fp')) return 'fp';
+    if (p.includes('cfc') || p.includes('walk')) return 'cfc';
+    return 'oth';
+}
+
+// Apply format/store/partner filters to a sales row set
+function applyFilters(rows) {
+    const fmt = document.getElementById('formatSelect').value;
+    const store = document.getElementById('storeSelect').value;
+    const partner = document.getElementById('partnerSelect').value;
+    return rows.filter(r => {
+        if (fmt !== 'all') { const st = (r['Store Type']||'').trim().toUpperCase(); if (st !== fmt) return false; }
+        if (store !== 'all' && getStoreKey(r) !== store) return false;
+        if (partner !== 'all') { const b = partnerBucket(r); if (partner === 'grab' && b !== 'grab') return false; if (partner === 'fp' && b !== 'fp') return false; }
+        return true;
+    });
+}
+
+function sum(rows, field) { return rows.reduce((a, r) => a + (parseFloat(r[field]) || 0), 0); }
+
+// ===== CHART INSTANCES =====
+let trendChart, formatDonut, partnerDonut, categoryChart, spendChart;
+
+// ===== RENDER =====
+function renderDashboard() {
+    const month = document.getElementById('monthSelect').value;
+    const selDate = document.getElementById('dateSelect').value;
+    const partner = document.getElementById('partnerSelect').value;
+
+    // Month-level rows (filtered by format/store/partner)
+    let mSalesAll = salesData.filter(r => r.Month === month);
+    let mSales = applyFilters(mSalesAll);
+
+    // --- Determine the cutoff date from the FULL month first ---
+    // (so "Full Month" can fall back to the last date that actually has sales)
+    // Capped at YESTERDAY so the current running day is never shown.
+    const cutoffKey = yesterdayKeySG();
+    const fullDayKeys = [...new Set(mSales.map(r => toDateKey(r.Date)).filter(Boolean))].filter(k => k <= cutoffKey).sort();
+    let dateForDay = selDate;
+    if (selDate === 'all') dateForDay = fullDayKeys.length ? fullDayKeys[fullDayKeys.length-1] : '';
+    // If a specific date later than yesterday was somehow selected, clamp it to yesterday.
+    if (selDate !== 'all' && toDateKey(selDate) > cutoffKey) dateForDay = cutoffKey;
+    const dayKey = toDateKey(dateForDay);
+    // capKey = the selected date (or last date with sales). Nothing after this date is shown anywhere.
+    const capKey = dayKey || (fullDayKeys.length ? fullDayKeys[fullDayKeys.length-1] : '');
+
+    // --- CAP all month data to on-or-before the selected date ---
+    // Every downstream view (trend, donuts, category, store format, KPIs) uses these capped sets,
+    // so selecting 24 Sep shows data only up to 24 Sep.
+    if (capKey) {
+        mSalesAll = mSalesAll.filter(r => { const k = toDateKey(r.Date); return k && k <= capKey; });
+        mSales    = mSales.filter(r => { const k = toDateKey(r.Date); return k && k <= capKey; });
+    }
+
+    // --- Build daily series across the capped month ---
+    const dayMap = {}; // dateKey -> {sales, orders, dateStr}
+    mSales.forEach(r => {
+        const key = toDateKey(r.Date);
+        if (!key) return;
+        if (!dayMap[key]) dayMap[key] = { sales: 0, orders: 0, dateStr: r.Date };
+        dayMap[key].sales += parseFloat(r['Net Sales']) || 0;
+        dayMap[key].orders += parseFloat(r['No of Orders']) || 0;
+    });
+    const sortedDayKeys = Object.keys(dayMap).sort();
+
+    // --- MTD sales (sum up to and including selected/last date) ---
+    let mtdSales = 0, mtdOrders = 0;
+    sortedDayKeys.forEach(k => { mtdSales += dayMap[k].sales; mtdOrders += dayMap[k].orders; });
+    const daySales = dayKey && dayMap[dayKey] ? dayMap[dayKey].sales : 0;
+    const dayOrders = dayKey && dayMap[dayKey] ? dayMap[dayKey].orders : 0;
+
+    // --- Previous month comparison (same filters, full month to date equivalent) ---
+    const prevInfo = getPrevMonth(month);
+    let prevMtdSales = 0, prevDaySales = 0;
+    if (prevInfo) {
+        const pRows = applyFilters(salesData.filter(r => r.Month === prevInfo));
+        const pDayMap = {};
+        pRows.forEach(r => { const k = toDateKey(r.Date); if (!k) return; if (!pDayMap[k]) pDayMap[k]={sales:0}; pDayMap[k].sales += parseFloat(r['Net Sales'])||0; });
+        const pKeys = Object.keys(pDayMap).sort();
+        // Previous MTD: match same day-of-month count
+        const dayNum = capKey ? parseInt(capKey.split('-')[2]) : 31;
+        pKeys.forEach(k => { if (parseInt(k.split('-')[2]) <= dayNum) prevMtdSales += pDayMap[k].sales; });
+        // Previous "same day" = same day-of-month
+        const prevDayK = pKeys.find(k => parseInt(k.split('-')[2]) === (dayKey ? parseInt(dayKey.split('-')[2]) : -1));
+        if (prevDayK) prevDaySales = pDayMap[prevDayK].sales;
+    }
+
+    // --- Targets ---
+    const { dayTarget, mtdTarget } = computeTargets(month, dayKey, capKey);
+
+    // === KPI CARDS ===
+    renderKPIs({ mtdSales, mtdTarget, prevMtdSales, prevInfo, daySales, dayTarget, prevDaySales, dateForDay });
+
+    // === TREND CHART ===
+    renderTrend(month, sortedDayKeys, dayMap, prevInfo, dayTarget);
+
+    // === DONUTS ===
+    const fmtDonutView = document.getElementById('formatDonutView').value;   // 'daily' | 'mtd'
+    const partnerDonutView = document.getElementById('partnerDonutView').value; // 'daily' | 'mtd'
+    renderFormatDonut(mSales, capKey, dayKey, fmtDonutView);
+    renderPartnerDonut(mSalesAll, dayKey, partnerDonutView); // partner donut uses unfiltered-by-partner set so both show
+
+    // === STORE TABLE ===
+    // Daily (selected day vs previous day) or MTD (month-to-date vs previous month's MTD),
+    // controlled by the View dropdown on the panel.
+    const storeView = document.getElementById('storeViewSelect').value; // 'daily' | 'mtd'
+    renderStoreTable(storeView, dayKey);
+
+    // === CATEGORY BAR ===
+    const categoryChartView = document.getElementById('categoryChartView').value; // 'daily' | 'mtd'
+    renderCategoryChart(month, capKey, dayKey, categoryChartView);
+
+    // === SPEND vs NET SALES (Grab & Foodpanda) ===
+    renderSpendChart(mSales, month, dayKey, capKey);
+
+    // === CATEGORY PERFORMANCE MATRIX ===
+    renderCategoryMatrix(month, capKey);
+
+    // === ADDON PERFORMANCE (MTD) ===
+    renderAddonTable(month, capKey, mSales);
+}
+
+function getPrevMonth(month) {
+    const idx = allMonths.indexOf(month);
+    return idx > 0 ? allMonths[idx - 1] : null;
+}
+
+function computeTargets(month, dayKey, capKey) {
+    let dayTarget = 0, mtdTarget = 0;
+    const monthPrefix = capKey ? capKey.substring(0,7) : '';
+    targetData.forEach(r => {
+        const tKey = toDateKey(r.Date || r['Date'] || '');
+        if (!tKey) return;
+        const val = parseFloat(String(r['Value']||'').replace(/[,\s$]/g,'')) || 0;
+        if (tKey === dayKey) dayTarget = val;
+        if (monthPrefix && tKey.substring(0,7) === monthPrefix && (!capKey || tKey <= capKey)) mtdTarget += val;
+    });
+    return { dayTarget, mtdTarget };
+}
+
+// ===== KPI RENDER =====
+function money(v) { return '$' + Math.round(v).toLocaleString('en-US'); }
+function trendHtml(curr, prev) {
+    if (!prev || prev === 0) return { cls: 'flat', html: '&mdash;', pts: '(No comparison)' };
+    const pct = ((curr - prev) / prev) * 100;
+    const cls = pct >= 0 ? 'up' : 'down';
+    const arrow = pct >= 0 ? '&#9650;' : '&#9660;';
+    return { cls, html: `${arrow} ${Math.abs(pct).toFixed(1)}%`, pts: '' };
+}
+
+function renderKPIs(d) {
+    document.getElementById('kpiTotalSales').textContent = money(d.mtdSales);
+    const tt = trendHtml(d.mtdSales, d.prevMtdSales);
+    const totTrendEl = document.getElementById('kpiTotalTrend');
+    totTrendEl.innerHTML = tt.html; totTrendEl.className = 'kpi-trend ' + tt.cls;
+    document.getElementById('kpiTotalSub').textContent = d.prevInfo ? `vs ${d.prevInfo} (${money(d.prevMtdSales)})` : 'No prior month';
+
+    document.getElementById('kpiMtdTarget').textContent = d.mtdTarget > 0 ? money(d.mtdTarget) : '-';
+
+    const mtdAch = d.mtdTarget > 0 ? (d.mtdSales / d.mtdTarget) * 100 : null;
+    document.getElementById('kpiMtdAch').textContent = mtdAch !== null ? mtdAch.toFixed(1) + '%' : '-';
+    const mtdAchEl = document.getElementById('kpiMtdAchTrend');
+    if (mtdAch !== null) {
+        const over = mtdAch >= 100;
+        mtdAchEl.className = 'kpi-trend ' + (over ? 'up' : 'down');
+        mtdAchEl.innerHTML = (over ? '&#9650;' : '&#9660;') + ' ' + Math.abs(mtdAch - 100).toFixed(1) + ' pts';
+        document.getElementById('kpiMtdAchSub').textContent = over ? 'Above target' : 'Below target';
+    } else { mtdAchEl.innerHTML = '&mdash;'; mtdAchEl.className = 'kpi-trend flat'; document.getElementById('kpiMtdAchSub').textContent = 'No target set'; }
+
+    document.getElementById('kpiDaySales').textContent = money(d.daySales);
+    const dt = trendHtml(d.daySales, d.prevDaySales);
+    const dTrendEl = document.getElementById('kpiDayTrend');
+    dTrendEl.innerHTML = dt.html; dTrendEl.className = 'kpi-trend ' + dt.cls;
+    document.getElementById('kpiDaySub').textContent = d.dateForDay ? `on ${d.dateForDay}` : '';
+
+    document.getElementById('kpiDayTarget').textContent = d.dayTarget > 0 ? money(d.dayTarget) : '-';
+    document.getElementById('kpiDayTargetSub').textContent = d.dateForDay ? `for ${d.dateForDay}` : 'Target for day';
+
+    const dayAch = d.dayTarget > 0 ? (d.daySales / d.dayTarget) * 100 : null;
+    document.getElementById('kpiDayAch').textContent = dayAch !== null ? dayAch.toFixed(1) + '%' : '-';
+    const dayAchEl = document.getElementById('kpiDayAchTrend');
+    if (dayAch !== null) {
+        const over = dayAch >= 100;
+        dayAchEl.className = 'kpi-trend ' + (over ? 'up' : 'down');
+        dayAchEl.innerHTML = (over ? '&#9650;' : '&#9660;') + ' ' + Math.abs(dayAch - 100).toFixed(1) + ' pts';
+        document.getElementById('kpiDayAchSub').textContent = over ? 'Above target' : 'Below target';
+    } else { dayAchEl.innerHTML = '&mdash;'; dayAchEl.className = 'kpi-trend flat'; document.getElementById('kpiDayAchSub').textContent = 'No target set'; }
+}
+
+// ===== TREND CHART =====
+// Daily trend: each point is that single day's value so day-to-day fluctuations are visible.
+// Sales & Spend ($) share the left axis; Orders (count) use the right axis.
+function renderTrend(month, sortedDayKeys, dayMap, prevInfo, dayTarget) {
+    const labels = sortedDayKeys.map(k => { const p = k.split('-'); return parseInt(p[2]) + ' ' + monthNames[parseInt(p[1])-1].substring(0,3); });
+
+    // --- Daily spend map for the selected month (sum of all partners per day) ---
+    const parts = month.split('-');
+    const mNum = monthMap[parts[0]] || '';
+    const yr = parts[1] ? '20' + parts[1] : '';
+    const monthPrefix = yr && mNum ? (yr + '-' + mNum) : '';
+    // Respect the Partner filter: Grab-only / FP-only / all
+    const partnerFilter = document.getElementById('partnerSelect').value;
+    const spendByDay = {};
+    spentData.forEach(r => {
+        const k = toDateKey(r.Date);
+        if (!k || (monthPrefix && k.substring(0, 7) !== monthPrefix)) return;
+        const p = (r['Partner'] || '').toLowerCase();
+        if (partnerFilter === 'grab' && !p.includes('grab')) return;
+        if (partnerFilter === 'fp' && !(p.includes('fp') || p.includes('food'))) return;
+        spendByDay[k] = (spendByDay[k] || 0) + (parseFloat(r['Spend']) || 0);
+    });
+
+    // --- Build per-day (NOT cumulative) series across the month's days ---
+    const dailyOrders = [], dailySales = [], dailySpend = [];
+    sortedDayKeys.forEach(k => {
+        dailyOrders.push(Math.round(dayMap[k].orders || 0));
+        dailySales.push(Math.round(dayMap[k].sales || 0));
+        dailySpend.push(Math.round(spendByDay[k] || 0));
+    });
+
+    const datasets = [
+        { type: 'line', label: 'Daily Sales ($)', data: dailySales, yAxisID: 'yMoney',
+          borderColor: '#2b7de9', backgroundColor: 'rgba(43,125,233,0.08)', borderWidth: 2.5, pointRadius: 2.5, tension: 0.3, fill: true, order: 1 },
+        { type: 'line', label: 'Daily Spend ($)', data: dailySpend, yAxisID: 'yMoney',
+          borderColor: '#9575cd', backgroundColor: '#9575cd', borderWidth: 2, pointRadius: 2, tension: 0.3, order: 2 },
+        { type: 'line', label: 'Daily Orders', data: dailyOrders, yAxisID: 'yOrders',
+          borderColor: '#f5932e', backgroundColor: '#f5932e', borderWidth: 2, pointRadius: 2, tension: 0.3, borderDash: [5,3], order: 3 }
+    ];
+
+    if (trendChart) trendChart.destroy();
+    trendChart = new Chart(document.getElementById('trendChart'), {
+        data: { labels, datasets },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } },
+                tooltip: { callbacks: { label: c => {
+                    const v = c.parsed.y;
+                    if (v == null) return c.dataset.label + ': -';
+                    return c.dataset.label + ': ' + (c.dataset.yAxisID === 'yOrders' ? v.toLocaleString() + ' orders' : '$' + v.toLocaleString());
+                } } }
+            },
+            scales: {
+                yMoney: { position: 'left', beginAtZero: true, title: { display: true, text: 'Sales / Spend ($)', font: { size: 10 } },
+                    ticks: { callback: v => '$' + (v/1000) + 'K', font: { size: 10 } }, grid: { color: '#eef1f5' } },
+                yOrders: { position: 'right', beginAtZero: true, title: { display: true, text: 'Orders', font: { size: 10 } },
+                    ticks: { callback: v => v.toLocaleString(), font: { size: 10 } }, grid: { drawOnChartArea: false } },
+                x: { ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 10, font: { size: 10 } }, grid: { display: false } }
+            }
+        }
+    });
+}
+
+// ===== DONUTS =====
+// sumCFCWalkIn(month, capKey, exactDayKey?)
+//   - exactDayKey set  -> sum ONLY that single day
+//   - otherwise        -> sum the month up to capKey (MTD)
+function sumCFCWalkIn(month, capKey, exactDayKey) {
+    const parts = month.split('-'); const mNum = monthMap[parts[0]] || ''; const yr = parts[1] ? '20'+parts[1] : '';
+    return cfcWalkinData.filter(r => {
+        const d = (r['Date'] || r['Date '] || '').trim(); if (!d) return false;
+        const k = toDateKey(d);
+        if (exactDayKey) return k === exactDayKey; // single-day mode
+        if (capKey && (!k || k > capKey)) return false; // MTD cutoff
+        const mdy = d.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/);
+        if (mdy) return mdy[1].padStart(2,'0') === mNum && mdy[3] === yr;
+        const pd = parseDate(d); return pd ? (String(pd.getMonth()+1).padStart(2,'0')===mNum && String(pd.getFullYear())===yr) : false;
+    }).reduce((a, r) => a + (parseFloat(r['Amount']||r['amount']||0)||0), 0);
+}
+
+function renderFormatDonut(rows, capKey, dayKey, view) {
+    const month = document.getElementById('monthSelect').value;
+    const partner = document.getElementById('partnerSelect').value;
+    const isDaily = view === 'daily';
+    // Daily view: restrict to the selected day; MTD view: use the capped month rows.
+    const useRows = isDaily ? rows.filter(r => toDateKey(r.Date) === dayKey) : rows;
+    let qfc = 0, cfc = 0;
+    useRows.forEach(r => { const st = (r['Store Type']||'').trim().toUpperCase(); const net = parseFloat(r['Net Sales'])||0; if (st==='QFC') qfc+=net; else if (st==='CFC') cfc+=net; });
+    // CFC walk-in only counts when not filtering to Grab/FP partner and format allows CFC
+    const fmt = document.getElementById('formatSelect').value;
+    if (partner === 'all' && (fmt === 'all' || fmt === 'CFC')) cfc += sumCFCWalkIn(month, capKey, isDaily ? dayKey : null);
+    const total = qfc + cfc;
+    document.getElementById('fmtDonutTotal').textContent = money(total);
+    document.getElementById('fmtDonutLbl').textContent = isDaily ? 'Daily Sales' : 'MTD Sales';
+
+    if (formatDonut) formatDonut.destroy();
+    formatDonut = new Chart(document.getElementById('formatDonut'), {
+        type: 'doughnut',
+        data: { labels: ['QFC','CFC'], datasets: [{ data: [Math.round(qfc), Math.round(cfc)], backgroundColor: ['#2b7de9','#f5932e'], borderWidth: 2, borderColor: '#fff' }] },
+        options: { responsive: true, maintainAspectRatio: false, cutout: '68%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.label + ': ' + money(c.parsed) } } } }
+    });
+
+    const pct = v => total > 0 ? (v/total*100).toFixed(0) + '%' : '-';
+    document.getElementById('formatLegend').innerHTML =
+        legendRow('#2b7de9', 'QFC', money(qfc), pct(qfc)) +
+        legendRow('#f5932e', 'CFC', money(cfc), pct(cfc));
+}
+
+function renderPartnerDonut(rows, dayKey, view) {
+    const isDaily = view === 'daily';
+    // Respect format & store filters but show both partners
+    const fmt = document.getElementById('formatSelect').value;
+    const store = document.getElementById('storeSelect').value;
+    const filtered = rows.filter(r => {
+        if (isDaily && toDateKey(r.Date) !== dayKey) return false; // daily: selected day only
+        if (fmt !== 'all') { if ((r['Store Type']||'').trim().toUpperCase() !== fmt) return false; }
+        if (store !== 'all' && getStoreKey(r) !== store) return false;
+        return true;
+    });
+    let grab = 0, fp = 0;
+    filtered.forEach(r => { const b = partnerBucket(r); const net = parseFloat(r['Net Sales'])||0; if (b==='grab') grab+=net; else if (b==='fp') fp+=net; });
+    const total = grab + fp;
+    document.getElementById('partnerDonutTotal').textContent = money(total);
+    document.getElementById('partnerDonutLbl').textContent = isDaily ? 'Daily Sales' : 'MTD Sales';
+
+    if (partnerDonut) partnerDonut.destroy();
+    partnerDonut = new Chart(document.getElementById('partnerDonut'), {
+        type: 'doughnut',
+        data: { labels: ['Grab','Foodpanda'], datasets: [{ data: [Math.round(grab), Math.round(fp)], backgroundColor: ['#00b14f','#e91e8c'], borderWidth: 2, borderColor: '#fff' }] },
+        options: { responsive: true, maintainAspectRatio: false, cutout: '68%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.label + ': ' + money(c.parsed) } } } }
+    });
+
+    const pct = v => total > 0 ? (v/total*100).toFixed(0) + '%' : '-';
+    document.getElementById('partnerLegend').innerHTML =
+        legendRow('#00b14f', 'Grab', money(grab), pct(grab)) +
+        legendRow('#e91e8c', 'Foodpanda', money(fp), pct(fp));
+}
+
+function legendRow(color, name, val, meta) {
+    return `<div class="legend-item"><span class="legend-dot" style="background:${color};"></span><span class="legend-text"><span class="legend-name">${name}</span><span class="legend-val">${val} <span class="legend-meta">(${meta})</span></span></span></div>`;
+}
+
+// Previous calendar day key (YYYY-MM-DD) relative to a given key; crosses month/year boundaries
+function prevDayKey(dayKey) {
+    if (!dayKey) return '';
+    const p = dayKey.split('-');
+    const d = new Date(parseInt(p[0]), parseInt(p[1]) - 1, parseInt(p[2]));
+    d.setDate(d.getDate() - 1);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+// Aggregate per-store sales/orders for a single date key, across the FULL dataset,
+// respecting the current format/store/partner filters.
+function aggStoresForDay(dayKey) {
+    const res = {};
+    if (!dayKey) return res;
+    const rows = applyFilters(salesData).filter(r => toDateKey(r.Date) === dayKey);
+    rows.forEach(r => {
+        const s = getStoreKey(r);
+        if (!res[s]) res[s] = { sales: 0, orders: 0 };
+        res[s].sales += parseFloat(r['Net Sales']) || 0;
+        res[s].orders += parseFloat(r['No of Orders']) || 0;
+    });
+    return res;
+}
+
+// Aggregate per-store sales/orders over an INCLUSIVE date-key range [fromKey, toKey],
+// across the FULL dataset, respecting the current format/store/partner filters.
+function aggStoresForRange(fromKey, toKey) {
+    const res = {};
+    if (!fromKey || !toKey) return res;
+    let lo = fromKey, hi = toKey; if (lo > hi) { const t = lo; lo = hi; hi = t; }
+    applyFilters(salesData).forEach(r => {
+        const k = toDateKey(r.Date);
+        if (!k || k < lo || k > hi) return;
+        const s = getStoreKey(r);
+        if (!res[s]) res[s] = { sales: 0, orders: 0 };
+        res[s].sales += parseFloat(r['Net Sales']) || 0;
+        res[s].orders += parseFloat(r['No of Orders']) || 0;
+    });
+    return res;
+}
+
+// Given a date key, return the matching MTD range for the SAME month (1st -> that day)
+// and the previous month's MTD range (1st of prev month -> same day-of-month, clamped).
+function mtdRangesFor(dayKey) {
+    const p = dayKey.split('-');
+    const y = parseInt(p[0]), m = parseInt(p[1]) - 1, d = parseInt(p[2]);
+    const fmtKey = (yy, mm, dd) => yy + '-' + String(mm + 1).padStart(2, '0') + '-' + String(dd).padStart(2, '0');
+    // Current month MTD
+    const curFrom = fmtKey(y, m, 1);
+    const curTo = dayKey;
+    // Previous month
+    const pm = m === 0 ? 11 : m - 1;
+    const py = m === 0 ? y - 1 : y;
+    const prevMonthLastDay = new Date(py, pm + 1, 0).getDate(); // days in prev month
+    const prevDay = Math.min(d, prevMonthLastDay);              // clamp (e.g. 31 -> 30)
+    const prevFrom = fmtKey(py, pm, 1);
+    const prevTo = fmtKey(py, pm, prevDay);
+    return { curFrom, curTo, prevFrom, prevTo };
+}
+
+// ===== STORE TABLE =====
+// View = 'daily' : Sales reflect the selected day; comparison = PREVIOUS calendar day.
+// View = 'mtd'   : Sales reflect month-to-date (1st -> selected day); comparison = PREVIOUS month's MTD
+//                  (1st of prev month -> same day-of-month). Growth = MTD vs last-month MTD.
+// Rows are ordered by store priority (444 Tagore FNP, 444 Tagore Platform, MacPherson, then rest).
+function renderStoreTable(view, dayKey) {
+    const isMtd = view === 'mtd';
+
+    // Format lookup per store (from the current month's rows)
+    const fmtByStore = {};
+    applyFilters(salesData).forEach(r => {
+        const k = toDateKey(r.Date);
+        if (!k || !dayKey || k.substring(0,7) !== dayKey.substring(0,7)) return;
+        const s = getStoreKey(r);
+        if (!fmtByStore[s]) fmtByStore[s] = (r['Store Type']||'').trim().toUpperCase();
+    });
+
+    // Current + comparison aggregations
+    let curAgg, cmpAgg, cmpLabel;
+    if (isMtd) {
+        const { curFrom, curTo, prevFrom, prevTo } = mtdRangesFor(dayKey);
+        curAgg = aggStoresForRange(curFrom, curTo);
+        cmpAgg = aggStoresForRange(prevFrom, prevTo);
+        cmpLabel = 'Prev MTD';
+    } else {
+        curAgg = aggStoresForDay(dayKey);
+        cmpAgg = aggStoresForDay(prevDayKey(dayKey));
+        cmpLabel = 'Prev Day';
+    }
+
+    const storeSet = new Set([...Object.keys(curAgg), ...Object.keys(cmpAgg)]);
+    const stores = sortStores([...storeSet]);
+
+    const grandSales = stores.reduce((a,s)=>a+(curAgg[s]?.sales||0),0);
+    const grandOrders = stores.reduce((a,s)=>a+(curAgg[s]?.orders||0),0);
+    const grandCmp = stores.reduce((a,s)=>a+(cmpAgg[s]?.sales||0),0);
+
+    const salesHdr = isMtd ? 'MTD Sales' : 'Sales';
+    let h = `<thead><tr><th>Store</th><th>Format</th><th>${salesHdr}</th><th>% of Total</th><th>Orders</th><th>ATV</th><th>${cmpLabel}</th><th>Growth %</th></tr></thead><tbody>`;
+
+    stores.forEach(s => {
+        const cur = curAgg[s] || { sales: 0, orders: 0 };
+        const cmpVal = cmpAgg[s]?.sales || 0;
+        const pctTot = grandSales > 0 ? (cur.sales/grandSales*100).toFixed(1)+'%' : '-';
+        const atv = cur.orders > 0 ? '$' + (cur.sales/cur.orders).toFixed(1) : '-';
+        const growth = cmpVal > 0 ? ((cur.sales - cmpVal) / cmpVal * 100) : null;
+        const gCls = growth === null ? 'flat' : (growth >= 0 ? 'up' : 'down');
+        const gTxt = growth === null ? '&mdash;' : ((growth>=0?'&#9650; ':'&#9660; ') + Math.abs(growth).toFixed(1) + '%');
+        const fmt = fmtByStore[s] || '';
+        const badge = fmt === 'QFC' ? '<span class="fmt-badge fmt-qfc">QFC</span>' : (fmt === 'CFC' ? '<span class="fmt-badge fmt-cfc">CFC</span>' : fmt);
+        h += `<tr><td>${s}</td><td>${badge}</td><td>${money(cur.sales)}</td><td>${pctTot}</td><td>${Math.round(cur.orders).toLocaleString()}</td><td>${atv}</td><td>${money(cmpVal)}</td><td class="growth ${gCls}">${gTxt}</td></tr>`;
+    });
+    h += '</tbody>';
+    const gGrowth = grandCmp > 0 ? ((grandSales-grandCmp)/grandCmp*100) : null;
+    const gCls = gGrowth === null ? 'flat' : (gGrowth >= 0 ? 'up' : 'down');
+    const gTxt = gGrowth === null ? '&mdash;' : ((gGrowth>=0?'&#9650; ':'&#9660; ') + Math.abs(gGrowth).toFixed(1) + '%');
+    const gAtv = grandOrders > 0 ? '$' + (grandSales/grandOrders).toFixed(1) : '-';
+    h += `<tfoot><tr><td>Total</td><td>-</td><td>${money(grandSales)}</td><td>100%</td><td>${Math.round(grandOrders).toLocaleString()}</td><td>${gAtv}</td><td>${money(grandCmp)}</td><td class="growth ${gCls}">${gTxt}</td></tr></tfoot>`;
+    document.getElementById('storeTable').innerHTML = h;
+}
+
+// ===== CATEGORY CHART =====
+const CATEGORY_ORDER = ['Flowers','Cakes','Combos','Gift Hampers','Addon','Other gifts','Plants','Personalised'];
+const CAT_COLORS = ['#e91e8c','#9c6ade','#f5a623','#2b7de9','#22a06b','#9aa6b8','#00b8d9','#ff7452'];
+
+function renderCategoryChart(month, capKey, dayKey, view) {
+    // category sheet filtered by month + format/store filters (partner filter N/A on category sheet)
+    const fmt = document.getElementById('formatSelect').value;
+    const store = document.getElementById('storeSelect').value;
+    const isDaily = view === 'daily';
+    let mCat = categoryData.filter(r => r.Month === month);
+    if (mCat.length === 0) {
+        const parts = month.split('-'); const mNum = monthMap[parts[0]]||''; const yr = parts[1]?'20'+parts[1]:'';
+        mCat = categoryData.filter(r => { const k = toDateKey(r.Date); return k && k.substring(0,7) === yr + '-' + mNum; });
+    }
+    mCat = mCat.filter(r => {
+        const k = toDateKey(r.Date);
+        // Daily view: only the selected day. MTD view: everything up to the cutoff.
+        if (isDaily) { if (k !== dayKey) return false; }
+        else if (capKey && (!k || k > capKey)) return false;
+        if (fmt !== 'all' && (r['Store Type']||'').trim().toUpperCase() !== fmt) return false;
+        if (store !== 'all' && getStoreKey(r) !== store) return false;
+        return true;
+    });
+
+    const catSales = {};
+    mCat.forEach(r => { const c = (r['Category Type']||'Other').trim(); const v = parseFloat(r['Item Gross Sales (S$)'])||0; catSales[c] = (catSales[c]||0) + v; });
+
+    // order known cats first, then any extras, collapse small into Others
+    const entries = Object.entries(catSales).sort((a,b)=>b[1]-a[1]);
+    const total = entries.reduce((a,e)=>a+e[1],0);
+    const top = entries.slice(0, 6);
+    const rest = entries.slice(6);
+    const restSum = rest.reduce((a,e)=>a+e[1],0);
+    const labels = top.map(e=>e[0]); const data = top.map(e=>Math.round(e[1]));
+    if (restSum > 0) { labels.push('Others'); data.push(Math.round(restSum)); }
+    const colors = labels.map((l,i) => l === 'Others' ? '#9aa6b8' : CAT_COLORS[i % CAT_COLORS.length]);
+
+    if (categoryChart) categoryChart.destroy();
+    categoryChart = new Chart(document.getElementById('categoryChart'), {
+        type: 'bar',
+        data: { labels, datasets: [{ data, backgroundColor: colors, borderRadius: 4 }] },
+        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => money(c.parsed.x) + (total>0?' ('+(c.parsed.x/total*100).toFixed(0)+'%)':'') } } },
+            scales: { x: { ticks: { callback: v => '$'+(v/1000)+'K', font:{size:10} }, grid: { color:'#eef1f5' } }, y: { ticks: { font:{size:11} }, grid: { display:false } } } }
+    });
+}
+
+// ===== SPEND vs NET SALES CHART (Grab & Foodpanda) =====
+// Grouped bars of Spend-as-%-of-net-sales for Grab vs Foodpanda, split by Daily and MTD.
+// The underlying spend/sales dollar figures are shown in tooltips and the legend below.
+// Daily = selected date; MTD = month-to-date capped at the selected date.
+function renderSpendChart(mtdRows, month, dayKey, capKey) {
+    // --- Net sales per partner (from capped MTD sales rows) ---
+    let mtdGrabSales = 0, mtdFPSales = 0;
+    let dayGrabSales = 0, dayFPSales = 0;
+    mtdRows.forEach(r => {
+        const b = partnerBucket(r);
+        const net = parseFloat(r['Net Sales']) || 0;
+        if (b === 'grab') mtdGrabSales += net;
+        else if (b === 'fp') mtdFPSales += net;
+        if (dayKey && toDateKey(r.Date) === dayKey) {
+            if (b === 'grab') dayGrabSales += net;
+            else if (b === 'fp') dayFPSales += net;
+        }
+    });
+
+    // --- Spend per partner (from spend sheet), respecting month, cutoff and the selected day ---
+    const parts = month.split('-');
+    const mNum = monthMap[parts[0]] || '';
+    const yr = parts[1] ? '20' + parts[1] : '';
+    const monthPrefix = (yr && mNum) ? (yr + '-' + mNum) : '';
+    let mtdGrabSpend = 0, mtdFPSpend = 0, dayGrabSpend = 0, dayFPSpend = 0;
+    spentData.forEach(r => {
+        const k = toDateKey(r.Date);
+        if (!k) return;
+        if (monthPrefix && k.substring(0, 7) !== monthPrefix) return;
+        if (capKey && k > capKey) return; // cutoff
+        const p = (r['Partner'] || '').toLowerCase();
+        const spend = parseFloat(r['Spend']) || 0;
+        const isGrab = p.includes('grab');
+        const isFP = p.includes('fp') || p.includes('food');
+        if (isGrab) mtdGrabSpend += spend; else if (isFP) mtdFPSpend += spend;
+        if (dayKey && k === dayKey) {
+            if (isGrab) dayGrabSpend += spend; else if (isFP) dayFPSpend += spend;
+        }
+    });
+
+    // Spend % of net sales (lower is better).
+    const pct = (spend, sales) => {
+        if (!sales || sales <= 0) return null;
+        return (spend / sales) * 100;
+    };
+    const GRAB = '#00b14f', FP = '#e91e8c';
+
+    // Spend % of net sales per partner, for Daily and MTD
+    const dayGrabPct = pct(dayGrabSpend, dayGrabSales);
+    const dayFPPct   = pct(dayFPSpend, dayFPSales);
+    const mtdGrabPct = pct(mtdGrabSpend, mtdGrabSales);
+    const mtdFPPct   = pct(mtdFPSpend, mtdFPSales);
+
+    // Grouped bars: x = Daily / MTD period, series = Grab / Foodpanda spend %
+    const labels = ['Daily', 'MTD'];
+    const datasets = [
+        {
+            label: 'Grab', backgroundColor: GRAB, borderRadius: 5, maxBarThickness: 46,
+            data: [dayGrabPct, mtdGrabPct],
+            _spend: [dayGrabSpend, mtdGrabSpend], _sales: [dayGrabSales, mtdGrabSales]
+        },
+        {
+            label: 'Foodpanda', backgroundColor: FP, borderRadius: 5, maxBarThickness: 46,
+            data: [dayFPPct, mtdFPPct],
+            _spend: [dayFPSpend, mtdFPSpend], _sales: [dayFPSales, mtdFPSales]
+        }
+    ];
+
+    if (spendChart) spendChart.destroy();
+    spendChart = new Chart(document.getElementById('spendChart'), {
+        type: 'bar',
+        data: { labels, datasets },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: { label: c => {
+                    const ds = c.dataset; const i = c.dataIndex;
+                    const pctVal = c.parsed.y == null ? '-' : c.parsed.y.toFixed(1) + '%';
+                    return `${ds.label}: ${pctVal} spend  (spend ${money(ds._spend[i])} / sales ${money(ds._sales[i])})`;
+                } } }
+            },
+            scales: {
+                y: { beginAtZero: true, title: { display: true, text: 'Spend % of Net Sales', font: { size: 10 } },
+                    ticks: { callback: v => v + '%', font: { size: 10 } }, grid: { color: '#eef1f5' } },
+                x: { ticks: { font: { size: 12, weight: '600' } }, grid: { display: false } }
+            }
+        }
+    });
+
+    // Legend below with the dollar figures (keeps the detail the old table had)
+    const row = (color, name, dS, dSal, dP, mS, mSal, mP) =>
+        `<div class="legend-item" style="min-width:230px;">
+            <span class="legend-dot" style="background:${color};"></span>
+            <span class="legend-text">
+                <span class="legend-name">${name}</span>
+                <span class="legend-meta">Daily: ${money(dS)} / ${money(dSal)} = <b>${dP==null?'-':dP.toFixed(1)+'%'}</b></span>
+                <span class="legend-meta">MTD: ${money(mS)} / ${money(mSal)} = <b>${mP==null?'-':mP.toFixed(1)+'%'}</b></span>
+            </span>
+        </div>`;
+    document.getElementById('spendLegend').innerHTML =
+        row(GRAB, 'Grab', dayGrabSpend, dayGrabSales, dayGrabPct, mtdGrabSpend, mtdGrabSales, mtdGrabPct) +
+        row(FP, 'Foodpanda', dayFPSpend, dayFPSales, dayFPPct, mtdFPSpend, mtdFPSales, mtdFPPct);
+}
+
+// ===== CATEGORY PERFORMANCE MATRIX =====
+// Rows = grouped categories, Columns = stores. Each cell = that group's % share within the store,
+// measured by Units or by Gross Sales (toggled via the dropdown). Month-to-date (capped at the
+// selected date). Addons are EXCLUDED here and shown in a separate table below.
+//
+// Grouping rules:
+//   Flowers      = Flowers + Preserved Flowers
+//   Cakes        = Cakes only
+//   Combos       = Combos only
+//   Gift Hampers = Gift Hampers only
+//   Others       = everything else (Plants, Personalised, Seasonal, and any new/unknown category)
+//   Addon        = excluded from this matrix (reported separately)
+const CATEGORY_GROUPS = ['Flowers', 'Cakes', 'Combos', 'Gift Hampers', 'Others'];
+
+// Map a raw "Category Type" to a group. Returns null for Addon (which is excluded here).
+function mapCategoryGroup(raw) {
+    const c = (raw || '').trim().toLowerCase();
+    if (!c) return 'Others';
+    if (c.includes('addon') || c.includes('add-on') || c.includes('add on')) return null; // excluded
+    if (c.includes('preserved') && c.includes('flower')) return 'Flowers';
+    if (c.includes('flower')) return 'Flowers';
+    if (c.includes('cake')) return 'Cakes';
+    if (c.includes('combo')) return 'Combos';
+    if (c.includes('gift hamper') || c.includes('hamper')) return 'Gift Hampers';
+    return 'Others';
+}
+// True if a row is an Addon row
+function isAddonCategory(raw) {
+    const c = (raw || '').trim().toLowerCase();
+    return c.includes('addon') || c.includes('add-on') || c.includes('add on');
+}
+
+function renderCategoryMatrix(month, capKey) {
+    const measure = document.getElementById('catMeasureSelect').value; // 'units' | 'value'
+    // This table has its own Format dropdown (All / QFC / CFC) so contribution can be reviewed separately.
+    const fmt = document.getElementById('catFormatSelect').value;
+    const store = document.getElementById('storeSelect').value;
+
+    // Filter category data to the selected month (fallback to date-derived month), cutoff, and filters
+    let mCat = categoryData.filter(r => r.Month === month);
+    if (mCat.length === 0) {
+        const parts = month.split('-'); const mNum = monthMap[parts[0]]||''; const yr = parts[1]?'20'+parts[1]:'';
+        mCat = categoryData.filter(r => { const k = toDateKey(r.Date); return k && k.substring(0,7) === yr + '-' + mNum; });
+    }
+    mCat = mCat.filter(r => {
+        if (capKey) { const k = toDateKey(r.Date); if (!k || k > capKey) return false; }
+        if (fmt !== 'all' && (r['Store Type']||'').trim().toUpperCase() !== fmt) return false;
+        if (store !== 'all' && getStoreKey(r) !== store) return false;
+        return true;
+    });
+
+    // Aggregate into grouped buckets: data[store][group] = amount (units or gross sales).
+    // Addon rows are skipped (handled by the Addon table).
+    const data = {};
+    const storeSet = new Set();
+    mCat.forEach(r => {
+        const group = mapCategoryGroup(r['Category Type']);
+        if (!group) return; // Addon excluded
+        const s = getStoreKey(r);
+        const amt = measure === 'units'
+            ? (parseFloat(r['Units']) || 0)
+            : (parseFloat(r['Item Gross Sales (S$)']) || 0);
+        if (amt === 0) return;
+        storeSet.add(s);
+        if (!data[s]) data[s] = {};
+        data[s][group] = (data[s][group] || 0) + amt;
+    });
+
+    const stores = sortStores([...storeSet]);
+    const cats = CATEGORY_GROUPS; // fixed order
+    const catKeyFor = (store, cat) => (data[store] && data[store][cat]) ? data[store][cat] : 0;
+
+    // Column (store) totals and grand total for the % denominators
+    const storeTotals = {};
+    stores.forEach(s => { storeTotals[s] = Object.values(data[s] || {}).reduce((a, v) => a + v, 0); });
+    const grandTotal = Object.values(storeTotals).reduce((a, v) => a + v, 0);
+
+    const unitLabel = measure === 'units' ? 'units' : 'gross sales';
+
+    if (stores.length === 0 || cats.length === 0) {
+        document.getElementById('categoryMatrix').innerHTML =
+            `<tbody><tr><td style="padding:20px; text-align:center; color:#70809a;">No category data for this selection.</td></tr></tbody>`;
+        return;
+    }
+
+    // Build header
+    let h = '<thead><tr><th>Category</th><th class="col-total">All Stores</th>';
+    stores.forEach(s => { h += `<th>${s.replace(' (', '<br>(')}</th>`; });
+    h += '</tr></thead><tbody>';
+
+    // Rows
+    cats.forEach(cat => {
+        h += `<tr><td>${cat}</td>`;
+        // All-stores column: this category's share of the grand total
+        const catGrand = stores.reduce((a, s) => a + catKeyFor(s, cat), 0);
+        const grandPct = grandTotal > 0 ? (catGrand / grandTotal * 100) : 0;
+        h += `<td class="col-total">${grandTotal > 0 ? grandPct.toFixed(1) + '%' : '-'}</td>`;
+        // Per-store columns: category share within that store
+        stores.forEach(s => {
+            const v = catKeyFor(s, cat);
+            const tot = storeTotals[s] || 0;
+            const pct = tot > 0 ? (v / tot * 100) : 0;
+            h += `<td style="${cellShade(pct)}">${tot > 0 && v > 0 ? pct.toFixed(1) + '%' : '-'}</td>`;
+        });
+        h += '</tr>';
+    });
+    h += '</tbody>';
+
+    // Footer: each column should total ~100% (shares within store). Confirms the math.
+    h += '<tfoot><tr><td>Total</td>';
+    h += `<td class="col-total">${grandTotal > 0 ? '100%' : '-'}</td>`;
+    stores.forEach(s => { h += `<td>${(storeTotals[s] || 0) > 0 ? '100%' : '-'}</td>`; });
+    h += '</tr></tfoot>';
+
+    document.getElementById('categoryMatrix').innerHTML = h;
+}
+
+// Light blue heat shading proportional to the percentage (0-100)
+function cellShade(pct) {
+    if (!pct || pct <= 0) return '';
+    const alpha = Math.min(0.6, 0.06 + (pct / 100) * 0.6);
+    return `background: rgba(43,125,233,${alpha.toFixed(2)}); color:${alpha > 0.4 ? '#fff' : '#1a2b3c'};`;
+}
+
+// ===== ADDON PERFORMANCE TABLE (MTD) =====
+// Per store: Addon units sold, Addon gross sales, and Attach Rate = Addon units / total orders * 100.
+// Month-to-date (capped at the selected date), respecting the category Format filter + top Store filter.
+// mtdSalesRows = capped MTD sales rows (already filtered) used for the per-store total order count.
+function renderAddonTable(month, capKey, mtdSalesRows) {
+    const fmt = document.getElementById('catFormatSelect').value; // this section's own format toggle
+    const store = document.getElementById('storeSelect').value;
+
+    // --- Addon units & gross sales per store (from Category sheet) ---
+    let mCat = categoryData.filter(r => r.Month === month);
+    if (mCat.length === 0) {
+        const parts = month.split('-'); const mNum = monthMap[parts[0]]||''; const yr = parts[1]?'20'+parts[1]:'';
+        mCat = categoryData.filter(r => { const k = toDateKey(r.Date); return k && k.substring(0,7) === yr + '-' + mNum; });
+    }
+    const addon = {}; // store -> { units, value }
+    mCat.forEach(r => {
+        if (!isAddonCategory(r['Category Type'])) return;
+        if (capKey) { const k = toDateKey(r.Date); if (!k || k > capKey) return; }
+        if (fmt !== 'all' && (r['Store Type']||'').trim().toUpperCase() !== fmt) return;
+        const s = getStoreKey(r);
+        if (store !== 'all' && s !== store) return;
+        if (!addon[s]) addon[s] = { units: 0, value: 0 };
+        addon[s].units += parseFloat(r['Units']) || 0;
+        addon[s].value += parseFloat(r['Item Gross Sales (S$)']) || 0;
+    });
+
+    // --- Total orders per store (from the capped MTD sales rows) ---
+    // Respect this section's Format toggle on top of the already-applied top filters.
+    const orders = {}; // store -> total orders
+    (mtdSalesRows || []).forEach(r => {
+        if (fmt !== 'all' && (r['Store Type']||'').trim().toUpperCase() !== fmt) return;
+        const s = getStoreKey(r);
+        orders[s] = (orders[s] || 0) + (parseFloat(r['No of Orders']) || 0);
+    });
+
+    // Union of stores that have either addon data or orders
+    const storeSet = new Set([...Object.keys(addon), ...Object.keys(orders)]);
+    const stores = sortStores([...storeSet]);
+
+    if (stores.length === 0) {
+        document.getElementById('addonTable').innerHTML =
+            `<tbody><tr><td style="padding:20px; text-align:center; color:#70809a;">No addon data for this selection.</td></tr></tbody>`;
+        return;
+    }
+
+    // Totals
+    let totUnits = 0, totValue = 0, totOrders = 0;
+    stores.forEach(s => { totUnits += addon[s]?.units || 0; totValue += addon[s]?.value || 0; totOrders += orders[s] || 0; });
+
+    const attach = (u, o) => o > 0 ? (u / o * 100) : null;
+    const attachCell = (u, o) => { const a = attach(u, o); return a == null ? '-' : a.toFixed(1) + '%'; };
+
+    let h = `<thead><tr>
+        <th>Metric</th>
+        <th class="col-total">All Stores</th>`;
+    stores.forEach(s => { h += `<th>${s.replace(' (', '<br>(')}</th>`; });
+    h += '</tr></thead><tbody>';
+
+    // Row: Addon Units Sold
+    h += `<tr><td>Addon Units Sold</td><td class="col-total">${Math.round(totUnits).toLocaleString()}</td>`;
+    stores.forEach(s => { const u = addon[s]?.units || 0; h += `<td>${u ? Math.round(u).toLocaleString() : '-'}</td>`; });
+    h += '</tr>';
+
+    // Row: Addon Gross Sales
+    h += `<tr><td>Addon Gross Sales ($)</td><td class="col-total">${money(totValue)}</td>`;
+    stores.forEach(s => { const v = addon[s]?.value || 0; h += `<td>${v ? money(v) : '-'}</td>`; });
+    h += '</tr>';
+
+    // Row: Attach Rate
+    h += `<tr><td>Attach Rate %</td><td class="col-total">${attachCell(totUnits, totOrders)}</td>`;
+    stores.forEach(s => {
+        const u = addon[s]?.units || 0; const o = orders[s] || 0; const a = attach(u, o);
+        h += `<td style="${a!=null?cellShade(Math.min(a,100)):''}">${a==null?'-':a.toFixed(1)+'%'}</td>`;
+    });
+    h += '</tr>';
+
+    h += '</tbody>';
+    document.getElementById('addonTable').innerHTML = h;
+}
+
+// ===================== PERIOD COMPARISON =====================
+// Independent of the top filters. Compares the same KPIs across two custom date ranges.
+
+// "Yesterday" in Singapore time as a YYYY-MM-DD key. The dashboard never shows the current
+// running day, so this is the hard upper bound for every date across all tables/charts.
+function yesterdayKeySG() {
+    const nowSG = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Singapore' }));
+    const y = new Date(nowSG.getFullYear(), nowSG.getMonth(), nowSG.getDate());
+    y.setDate(y.getDate() - 1); // one day before today
+    return y.getFullYear() + '-' + String(y.getMonth() + 1).padStart(2, '0') + '-' + String(y.getDate()).padStart(2, '0');
+}
+
+// All distinct sales dates across every month, sorted chronologically (YYYY-MM-DD keys).
+// Capped at YESTERDAY so the current running day is never selectable/shown anywhere.
+function allSalesDateKeys() {
+    const cutoff = yesterdayKeySG();
+    const keys = [...new Set(salesData.map(r => toDateKey(r.Date)).filter(Boolean))].filter(k => k <= cutoff);
+    keys.sort();
+    return keys;
+}
+// Pretty label for a date key, e.g. 2026-09-01 -> "01 Sep 2026"
+function dkLabel(k) {
+    if (!k) return '';
+    const p = k.split('-');
+    return p[2] + ' ' + monthNames[parseInt(p[1]) - 1].substring(0,3) + ' ' + p[0];
+}
+// Short label without the year, e.g. 2026-09-01 -> "01 Sep"
+function dkLabelShort(k) {
+    if (!k) return '';
+    const p = k.split('-');
+    return p[2] + ' ' + monthNames[parseInt(p[1]) - 1].substring(0,3);
+}
+
+// Set of date keys that actually have sales data (for highlighting in the custom calendar)
+let CMP_DATA_DAYS = new Set();
+
+function setDateField(id, key) {
+    const el = document.getElementById(id);
+    el.dataset.value = key || '';
+    el.textContent = key ? dkLabel(key) : 'Select';
+}
+function getDateField(id) {
+    return document.getElementById(id).dataset.value || '';
+}
+
+// Quick preset: compares the last N available days (Range B) against the N days before (Range A).
+// days=1 => previous-day comparison. Uses actual data days so gaps are skipped correctly.
+function applyPreset(days, skipRender) {
+    const keys = allSalesDateKeys();
+    if (keys.length === 0) return;
+    const n = keys.length;
+    // Range B = most recent `days` data-days
+    const bTo = keys[n - 1];
+    const bFromIdx = Math.max(0, n - days);
+    const bFrom = keys[bFromIdx];
+    // Range A = the `days` data-days immediately before Range B
+    const aToIdx = Math.max(0, bFromIdx - 1);
+    const aTo = keys[aToIdx];
+    const aFromIdx = Math.max(0, aToIdx - days + 1);
+    const aFrom = keys[aFromIdx];
+
+    setDateField('cmpBFrom', bFrom);
+    setDateField('cmpBTo', bTo);
+    setDateField('cmpAFrom', aFrom);
+    setDateField('cmpATo', aTo);
+
+    // Highlight the active preset button
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    const map = { 1: 'Previous Day', 7: 'Last 7 Days', 15: 'Last 15 Days', 30: 'Last 30 Days' };
+    document.querySelectorAll('.preset-btn').forEach(b => { if (b.textContent === map[days]) b.classList.add('active'); });
+
+    if (!skipRender) renderComparison();
+}
+
+function populateCompareFilters() {
+    const keys = allSalesDateKeys();
+    if (keys.length === 0) return;
+    CMP_DATA_DAYS = new Set(keys);
+
+    // Default: previous-day comparison (Range B = latest day, Range A = the day before)
+    applyPreset(1, true);
+
+    // Wire up the custom calendar on each date-field button
+    ['cmpAFrom','cmpATo','cmpBFrom','cmpBTo'].forEach(id => {
+        document.getElementById(id).onclick = (e) => { e.stopPropagation(); openCalendar(id); };
+    });
+
+    // Store filter options (union across all data)
+    const storeSet = new Set();
+    salesData.forEach(r => storeSet.add(getStoreKey(r)));
+    const cSel = document.getElementById('cmpStore');
+    cSel.innerHTML = '<option value="all">All Stores</option>';
+    sortStores([...storeSet]).forEach(s => { const o = document.createElement('option'); o.value = s; o.textContent = s; cSel.appendChild(o); });
+
+    // Re-render on filter changes
+    ['cmpFormat','cmpStore','cmpPartner','cmpCatMeasure'].forEach(id => {
+        document.getElementById(id).onchange = renderComparison;
+    });
+
+    // Month navigation
+    document.getElementById('calPrev').onclick = (e) => { e.stopPropagation(); calShiftMonth(-1); };
+    document.getElementById('calNext').onclick = (e) => { e.stopPropagation(); calShiftMonth(1); };
+
+    // Close the calendar when clicking elsewhere
+    document.addEventListener('click', () => closeCalendar());
+}
+
+// ===== CUSTOM CALENDAR =====
+let calTargetId = null;      // which date-field is being edited
+let calViewYear = 0, calViewMonth = 0; // currently displayed month (0-based month)
+
+function openCalendar(fieldId) {
+    calTargetId = fieldId;
+    document.querySelectorAll('.date-field').forEach(b => b.classList.remove('active'));
+    const btn = document.getElementById(fieldId);
+    btn.classList.add('active');
+
+    // Start the view on the currently selected date (or latest data month)
+    const cur = getDateField(fieldId);
+    let y, m;
+    if (cur) { const p = cur.split('-'); y = parseInt(p[0]); m = parseInt(p[1]) - 1; }
+    else { const last = [...CMP_DATA_DAYS].sort().pop(); const p = (last||'').split('-'); y = parseInt(p[0])||2026; m = (parseInt(p[1])||1) - 1; }
+    calViewYear = y; calViewMonth = m;
+
+    const pop = document.getElementById('calPopup');
+    pop.style.display = 'block';
+    // Position under the button
+    const r = btn.getBoundingClientRect();
+    pop.style.left = (window.scrollX + r.left) + 'px';
+    pop.style.top = (window.scrollY + r.bottom + 4) + 'px';
+    // keep the popup open when clicking inside it
+    pop.onclick = (e) => e.stopPropagation();
+    renderCalendar();
+}
+
+function closeCalendar() {
+    const pop = document.getElementById('calPopup');
+    if (pop) pop.style.display = 'none';
+    document.querySelectorAll('.date-field').forEach(b => b.classList.remove('active'));
+    calTargetId = null;
+}
+
+function renderCalendar() {
+    document.getElementById('calTitle').textContent = monthNames[calViewMonth] + ' ' + calViewYear;
+    const grid = document.getElementById('calGrid');
+    const dow = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+    let html = dow.map(d => `<div class="cal-dow">${d}</div>`).join('');
+    const firstDay = new Date(calViewYear, calViewMonth, 1).getDay();
+    const daysInMonth = new Date(calViewYear, calViewMonth + 1, 0).getDate();
+    for (let i = 0; i < firstDay; i++) html += `<div class="cal-day empty"></div>`;
+    const selected = calTargetId ? getDateField(calTargetId) : '';
+    for (let d = 1; d <= daysInMonth; d++) {
+        const key = calViewYear + '-' + String(calViewMonth + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+        const hasData = CMP_DATA_DAYS.has(key);
+        const isSel = key === selected;
+        const cls = ['cal-day', hasData ? 'has-data' : 'no-data', isSel ? 'selected' : ''].join(' ').trim();
+        html += `<div class="${cls}" data-key="${key}" ${hasData ? '' : 'data-nodata="1"'}>${d}</div>`;
+    }
+    grid.innerHTML = html;
+    // Day click handlers
+    grid.querySelectorAll('.cal-day[data-key]').forEach(cell => {
+        cell.onclick = (e) => {
+            e.stopPropagation();
+            if (cell.dataset.nodata) return; // ignore days with no data
+            const key = cell.dataset.key;
+            setDateField(calTargetId, key);
+            document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active')); // manual pick clears preset
+            closeCalendar();
+            renderComparison();
+        };
+    });
+}
+
+function calShiftMonth(delta) {
+    calViewMonth += delta;
+    if (calViewMonth < 0) { calViewMonth = 11; calViewYear--; }
+    else if (calViewMonth > 11) { calViewMonth = 0; calViewYear++; }
+    renderCalendar();
+}
+
+// Aggregate every KPI for a date range [fromKey, toKey], honoring the comparison filters.
+function aggRange(fromKey, toKey) {
+    const fmt = document.getElementById('cmpFormat').value;
+    const store = document.getElementById('cmpStore').value;
+    const partner = document.getElementById('cmpPartner').value; // 'all' | 'grab' | 'fp'
+    // normalize order
+    let lo = fromKey, hi = toKey;
+    if (lo > hi) { const t = lo; lo = hi; hi = t; }
+
+    const inRange = k => k && k >= lo && k <= hi;
+    const passFilters = r => {
+        if (fmt !== 'all' && (r['Store Type']||'').trim().toUpperCase() !== fmt) return false;
+        if (store !== 'all' && getStoreKey(r) !== store) return false;
+        if (partner !== 'all') { const b = partnerBucket(r); if (b !== partner) return false; }
+        return true;
+    };
+
+    const res = {
+        days: 0, totalSales: 0, totalOrders: 0,
+        qfc: 0, cfc: 0, grabSales: 0, fpSales: 0,
+        grabSpend: 0, fpSpend: 0,
+        byStore: {} // store -> {sales, orders}
+    };
+    const dayset = new Set();
+
+    salesData.forEach(r => {
+        const k = toDateKey(r.Date);
+        if (!inRange(k) || !passFilters(r)) return;
+        dayset.add(k);
+        const net = parseFloat(r['Net Sales']) || 0;
+        const ord = parseFloat(r['No of Orders']) || 0;
+        res.totalSales += net; res.totalOrders += ord;
+        const st = (r['Store Type']||'').trim().toUpperCase();
+        if (st === 'QFC') res.qfc += net; else if (st === 'CFC') res.cfc += net;
+        const b = partnerBucket(r);
+        if (b === 'grab') res.grabSales += net; else if (b === 'fp') res.fpSales += net;
+        const s = getStoreKey(r);
+        if (!res.byStore[s]) res.byStore[s] = { sales: 0, orders: 0 };
+        res.byStore[s].sales += net; res.byStore[s].orders += ord;
+    });
+
+    // CFC walk-in sales: only when format allows CFC AND no specific partner is selected
+    // (walk-in is neither Grab nor Foodpanda, so it drops out when scoping to a partner).
+    if ((fmt === 'all' || fmt === 'CFC') && partner === 'all') {
+        cfcWalkinData.forEach(r => {
+            const k = toDateKey((r['Date'] || r['Date '] || '').trim());
+            if (!inRange(k)) return;
+            res.cfc += parseFloat(r['Amount'] || r['amount'] || 0) || 0;
+        });
+    }
+
+    // Spend (respects range + partner filter; store/format not applicable to spend sheet)
+    spentData.forEach(r => {
+        const k = toDateKey(r.Date);
+        if (!inRange(k)) return;
+        const p = (r['Partner'] || '').toLowerCase();
+        const spend = parseFloat(r['Spend']) || 0;
+        const isGrab = p.includes('grab');
+        const isFP = p.includes('fp') || p.includes('food');
+        if (partner === 'grab' && !isGrab) return;
+        if (partner === 'fp' && !isFP) return;
+        if (isGrab) res.grabSpend += spend;
+        else if (isFP) res.fpSpend += spend;
+    });
+
+    // Category aggregation (from the Category sheet), honoring the same filters.
+    // byCat[group] = { units, value } using the grouped buckets. Addon is excluded here
+    // and tracked separately in addonUnits / addonValue.
+    res.byCat = {};
+    res.catTotUnits = 0; res.catTotValue = 0;
+    res.addonUnits = 0; res.addonValue = 0;
+    categoryData.forEach(r => {
+        const k = toDateKey(r.Date);
+        if (!inRange(k)) return;
+        if (fmt !== 'all' && (r['Store Type']||'').trim().toUpperCase() !== fmt) return;
+        if (store !== 'all' && getStoreKey(r) !== store) return;
+        if (partner !== 'all') {
+            const ps = (r['Partner Service'] || '').toLowerCase();
+            const b = ps.includes('grab') ? 'grab' : ((ps.includes('food') || ps.includes('fp')) ? 'fp' : 'oth');
+            if (b !== partner) return;
+        }
+        const u = parseFloat(r['Units']) || 0;
+        const v = parseFloat(r['Item Gross Sales (S$)']) || 0;
+        if (isAddonCategory(r['Category Type'])) {
+            res.addonUnits += u; res.addonValue += v;
+            return; // Addon excluded from the grouped contribution
+        }
+        const group = mapCategoryGroup(r['Category Type']);
+        if (!group) return;
+        if (!res.byCat[group]) res.byCat[group] = { units: 0, value: 0 };
+        res.byCat[group].units += u; res.byCat[group].value += v;
+        res.catTotUnits += u; res.catTotValue += v;
+    });
+
+    res.days = dayset.size;
+    res.totalSpend = res.grabSpend + res.fpSpend;
+    res.atv = res.totalOrders > 0 ? res.totalSales / res.totalOrders : 0;
+    return res;
+}
+
+// Difference cell: colored arrow + % change (A -> B)
+function diffPct(a, b, lowerIsBetter) {
+    if (a === 0 && b === 0) return '<span class="flat">&mdash;</span>';
+    if (a === 0) return '<span class="up">New</span>';
+    const pct = ((b - a) / a) * 100;
+    const good = lowerIsBetter ? pct < 0 : pct >= 0;
+    const cls = Math.abs(pct) < 0.05 ? 'flat' : (good ? 'up' : 'down');
+    const arrow = pct >= 0 ? '&#9650;' : '&#9660;';
+    return `<span class="${cls}">${arrow} ${Math.abs(pct).toFixed(1)}%</span>`;
+}
+
+function renderComparison() {
+    const aFrom = getDateField('cmpAFrom');
+    const aTo = getDateField('cmpATo');
+    const bFrom = getDateField('cmpBFrom');
+    const bTo = getDateField('cmpBTo');
+    if (!aFrom || !aTo || !bFrom || !bTo) return;
+
+    const A = aggRange(aFrom, aTo);
+    const B = aggRange(bFrom, bTo);
+
+    const aHdr = `${dkLabel(aFrom)} &rarr; ${dkLabel(aTo)}<br><small style="font-weight:400;">${A.days} day(s)</small>`;
+    const bHdr = `${dkLabel(bFrom)} &rarr; ${dkLabel(bTo)}<br><small style="font-weight:400;">${B.days} day(s)</small>`;
+    // Compact range labels (e.g. "18 Sep - 24 Sep") for narrower table headers
+    const shortRange = (from, to) => `${dkLabelShort(from)} &ndash; ${dkLabelShort(to)}`;
+    const aShort = shortRange(aFrom, aTo);
+    const bShort = shortRange(bFrom, bTo);
+
+    // ---- Overall KPIs table ----
+    const kpiRows = [
+        ['Total Sales', money(A.totalSales), money(B.totalSales), diffPct(A.totalSales, B.totalSales, false)],
+        ['Total Orders', Math.round(A.totalOrders).toLocaleString(), Math.round(B.totalOrders).toLocaleString(), diffPct(A.totalOrders, B.totalOrders, false)],
+        ['ATV', '$' + A.atv.toFixed(1), '$' + B.atv.toFixed(1), diffPct(A.atv, B.atv, false)],
+        ['QFC Sales', money(A.qfc), money(B.qfc), diffPct(A.qfc, B.qfc, false)],
+        ['CFC Sales', money(A.cfc), money(B.cfc), diffPct(A.cfc, B.cfc, false)],
+        ['Avg Sales / Day', money(A.days ? A.totalSales/A.days : 0), money(B.days ? B.totalSales/B.days : 0), diffPct(A.days?A.totalSales/A.days:0, B.days?B.totalSales/B.days:0, false)]
+    ];
+    let kh = `<thead><tr><th>Metric</th><th class="col-a">${aHdr}</th><th class="col-b">${bHdr}</th><th>Change</th></tr></thead><tbody>`;
+    kpiRows.forEach(r => { kh += `<tr><td>${r[0]}</td><td class="col-a-cell">${r[1]}</td><td class="col-b-cell">${r[2]}</td><td>${r[3]}</td></tr>`; });
+    kh += '</tbody>';
+    document.getElementById('cmpKpiTable').innerHTML = kh;
+
+    // ---- Store Performance table ----
+    const allStores = sortStores([...new Set([...Object.keys(A.byStore), ...Object.keys(B.byStore)])]);
+    let sh = `<thead><tr><th>Store</th><th class="col-a">${aShort}<br><small style="font-weight:400;">Sales</small></th><th class="col-b">${bShort}<br><small style="font-weight:400;">Sales</small></th><th>Change</th><th class="col-a">${aShort}<br><small style="font-weight:400;">Orders</small></th><th class="col-b">${bShort}<br><small style="font-weight:400;">Orders</small></th><th>Change</th></tr></thead><tbody>`;
+    allStores.forEach(s => {
+        const aS = A.byStore[s]?.sales || 0, bS = B.byStore[s]?.sales || 0;
+        const aO = A.byStore[s]?.orders || 0, bO = B.byStore[s]?.orders || 0;
+        sh += `<tr><td>${s}</td><td class="col-a-cell">${money(aS)}</td><td class="col-b-cell">${money(bS)}</td><td>${diffPct(aS,bS,false)}</td><td class="col-a-cell">${Math.round(aO).toLocaleString()}</td><td class="col-b-cell">${Math.round(bO).toLocaleString()}</td><td>${diffPct(aO,bO,false)}</td></tr>`;
+    });
+    sh += '</tbody>';
+    sh += `<tfoot><tr><td>Total</td><td>${money(A.totalSales)}</td><td>${money(B.totalSales)}</td><td>${diffPct(A.totalSales,B.totalSales,false)}</td><td>${Math.round(A.totalOrders).toLocaleString()}</td><td>${Math.round(B.totalOrders).toLocaleString()}</td><td>${diffPct(A.totalOrders,B.totalOrders,false)}</td></tr></tfoot>`;
+    document.getElementById('cmpStoreTable').innerHTML = sh;
+
+    // ---- Partner & Spend table ----
+    const aGrabPct = A.grabSales > 0 ? A.grabSpend/A.grabSales*100 : 0;
+    const bGrabPct = B.grabSales > 0 ? B.grabSpend/B.grabSales*100 : 0;
+    const aFPPct = A.fpSales > 0 ? A.fpSpend/A.fpSales*100 : 0;
+    const bFPPct = B.fpSales > 0 ? B.fpSpend/B.fpSales*100 : 0;
+    const aTotPct = A.totalSales > 0 ? A.totalSpend/A.totalSales*100 : 0;
+    const bTotPct = B.totalSales > 0 ? B.totalSpend/B.totalSales*100 : 0;
+    const pctTxt = v => v > 0 ? v.toFixed(1) + '%' : '-';
+
+    let ph = `<thead><tr><th>Metric</th><th class="col-a">${aShort}</th><th class="col-b">${bShort}</th><th>Change</th></tr></thead><tbody>`;
+    ph += `<tr class="cmp-sec"><td colspan="4">Total</td></tr>`;
+    ph += `<tr><td>Total Spend</td><td class="col-a-cell">${money(A.totalSpend)}</td><td class="col-b-cell">${money(B.totalSpend)}</td><td>${diffPct(A.totalSpend,B.totalSpend,true)}</td></tr>`;
+    ph += `<tr><td>Total Spend %</td><td class="col-a-cell">${pctTxt(aTotPct)}</td><td class="col-b-cell">${pctTxt(bTotPct)}</td><td>${diffPct(aTotPct,bTotPct,true)}</td></tr>`;
+    ph += `<tr class="cmp-sec"><td colspan="4">Grab</td></tr>`;
+    ph += `<tr><td>Grab Sales</td><td class="col-a-cell">${money(A.grabSales)}</td><td class="col-b-cell">${money(B.grabSales)}</td><td>${diffPct(A.grabSales,B.grabSales,false)}</td></tr>`;
+    ph += `<tr><td>Grab Spend</td><td class="col-a-cell">${money(A.grabSpend)}</td><td class="col-b-cell">${money(B.grabSpend)}</td><td>${diffPct(A.grabSpend,B.grabSpend,true)}</td></tr>`;
+    ph += `<tr><td>Grab Spend %</td><td class="col-a-cell">${pctTxt(aGrabPct)}</td><td class="col-b-cell">${pctTxt(bGrabPct)}</td><td>${diffPct(aGrabPct,bGrabPct,true)}</td></tr>`;
+    ph += `<tr class="cmp-sec"><td colspan="4">Foodpanda</td></tr>`;
+    ph += `<tr><td>Foodpanda Sales</td><td class="col-a-cell">${money(A.fpSales)}</td><td class="col-b-cell">${money(B.fpSales)}</td><td>${diffPct(A.fpSales,B.fpSales,false)}</td></tr>`;
+    ph += `<tr><td>Foodpanda Spend</td><td class="col-a-cell">${money(A.fpSpend)}</td><td class="col-b-cell">${money(B.fpSpend)}</td><td>${diffPct(A.fpSpend,B.fpSpend,true)}</td></tr>`;
+    ph += `<tr><td>Foodpanda Spend %</td><td class="col-a-cell">${pctTxt(aFPPct)}</td><td class="col-b-cell">${pctTxt(bFPPct)}</td><td>${diffPct(aFPPct,bFPPct,true)}</td></tr>`;
+    ph += '</tbody>';
+    document.getElementById('cmpPartnerTable').innerHTML = ph;
+
+    // ---- Category Performance table ----
+    renderCategoryComparison(A, B, aShort, bShort);
+
+    // ---- Addon Performance comparison ----
+    renderAddonComparison(A, B, aShort, bShort);
+}
+
+// Addon comparison: Units, Gross Sales, and Attach Rate (addon units / total orders * 100) for A vs B.
+function renderAddonComparison(A, B, aShort, bShort) {
+    const aAttach = A.totalOrders > 0 ? (A.addonUnits / A.totalOrders * 100) : null;
+    const bAttach = B.totalOrders > 0 ? (B.addonUnits / B.totalOrders * 100) : null;
+    const attachTxt = v => v == null ? '-' : v.toFixed(1) + '%';
+
+    // Attach-rate change in percentage points
+    let attachChange = '<span class="flat">&mdash;</span>';
+    if (aAttach != null && bAttach != null) {
+        const pts = bAttach - aAttach;
+        const cls = Math.abs(pts) < 0.05 ? 'flat' : (pts >= 0 ? 'up' : 'down');
+        const arrow = pts >= 0 ? '&#9650;' : '&#9660;';
+        attachChange = `<span class="${cls}">${arrow} ${Math.abs(pts).toFixed(1)} pts</span>`;
+    }
+
+    let h = `<thead><tr>
+        <th>Metric</th>
+        <th class="col-a">${aShort}</th>
+        <th class="col-b">${bShort}</th>
+        <th>Change</th>
+    </tr></thead><tbody>`;
+    h += `<tr><td>Addon Units Sold</td><td class="col-a-cell">${Math.round(A.addonUnits).toLocaleString()}</td><td class="col-b-cell">${Math.round(B.addonUnits).toLocaleString()}</td><td>${diffPct(A.addonUnits, B.addonUnits, false)}</td></tr>`;
+    h += `<tr><td>Addon Gross Sales ($)</td><td class="col-a-cell">${money(A.addonValue)}</td><td class="col-b-cell">${money(B.addonValue)}</td><td>${diffPct(A.addonValue, B.addonValue, false)}</td></tr>`;
+    h += `<tr><td>Total Orders</td><td class="col-a-cell">${Math.round(A.totalOrders).toLocaleString()}</td><td class="col-b-cell">${Math.round(B.totalOrders).toLocaleString()}</td><td>${diffPct(A.totalOrders, B.totalOrders, false)}</td></tr>`;
+    h += `<tr><td>Attach Rate %</td><td class="col-a-cell">${attachTxt(aAttach)}</td><td class="col-b-cell">${attachTxt(bAttach)}</td><td>${attachChange}</td></tr>`;
+    h += '</tbody>';
+    document.getElementById('cmpAddonTable').innerHTML = h;
+}
+
+// Category contribution comparison: each category's share of total (A vs B) + the raw figure + change.
+function renderCategoryComparison(A, B, aShort, bShort) {
+    const measure = document.getElementById('cmpCatMeasure').value; // 'value' | 'units'
+    const field = measure === 'units' ? 'units' : 'value';
+    const aTot = measure === 'units' ? A.catTotUnits : A.catTotValue;
+    const bTot = measure === 'units' ? B.catTotUnits : B.catTotValue;
+
+    // Fixed grouped categories (Addon excluded; handled separately)
+    const ordered = CATEGORY_GROUPS;
+    const findKey = (obj, cat) => (obj && obj[cat]) ? obj[cat] : null;
+    const fmtVal = v => measure === 'units' ? Math.round(v).toLocaleString() : money(v);
+
+    const unitWord = measure === 'units' ? 'Units' : 'Gross Sales';
+    let h = `<thead><tr>
+        <th>Category</th>
+        <th class="col-a">${aShort}<br><small style="font-weight:400;">${unitWord}</small></th>
+        <th class="col-a">Contribution %</th>
+        <th class="col-b">${bShort}<br><small style="font-weight:400;">${unitWord}</small></th>
+        <th class="col-b">Contribution %</th>
+        <th>Share Change</th>
+    </tr></thead><tbody>`;
+
+    ordered.forEach(cat => {
+        const aV = findKey(A.byCat, cat)?.[field] || 0;
+        const bV = findKey(B.byCat, cat)?.[field] || 0;
+        if (aV === 0 && bV === 0) return;
+        const aShare = aTot > 0 ? (aV / aTot * 100) : 0;
+        const bShare = bTot > 0 ? (bV / bTot * 100) : 0;
+        // share-point change (B - A) in percentage points
+        const pts = bShare - aShare;
+        const cls = Math.abs(pts) < 0.05 ? 'flat' : (pts >= 0 ? 'up' : 'down');
+        const arrow = pts >= 0 ? '&#9650;' : '&#9660;';
+        const ptsTxt = `<span class="${cls}">${arrow} ${Math.abs(pts).toFixed(1)} pts</span>`;
+        h += `<tr>
+            <td>${cat}</td>
+            <td class="col-a-cell">${fmtVal(aV)}</td>
+            <td class="col-a-cell">${aTot>0?aShare.toFixed(1)+'%':'-'}</td>
+            <td class="col-b-cell">${fmtVal(bV)}</td>
+            <td class="col-b-cell">${bTot>0?bShare.toFixed(1)+'%':'-'}</td>
+            <td>${ptsTxt}</td>
+        </tr>`;
+    });
+    h += '</tbody>';
+    h += `<tfoot><tr>
+        <td>Total</td>
+        <td>${fmtVal(aTot)}</td><td>${aTot>0?'100%':'-'}</td>
+        <td>${fmtVal(bTot)}</td><td>${bTot>0?'100%':'-'}</td>
+        <td>${diffPct(aTot, bTot, false)}</td>
+    </tr></tfoot>`;
+    document.getElementById('cmpCategoryTable').innerHTML = h;
+}
+
+// === INIT ===
+loadData();
+</script>
+</body>
+</html>
